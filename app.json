@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ThoiKhoaBieuApp",
+    "name": "QTimeTable",
     "slug": "ThoiKhoaBieuApp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -18,10 +18,16 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.hdquandev.thoikhoabieuapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f2359441-8b5b-4f85-a021-7d4b6ae444d0"
+      }
     }
   }
 }
