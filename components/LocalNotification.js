@@ -30,8 +30,8 @@ const requestPermissions = async () => {
   }
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('test-channel', {
-      name: 'Test Channel',
+    await Notifications.setNotificationChannelAsync('notification-tkb', {
+      name: 'Thông Báo Lịch Học',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF231F7C',
@@ -54,9 +54,26 @@ export const scheduleLocalNotification = async (title, body, triggerTime) => {
     },
     trigger: {
       seconds: triggerTime || 5,
+      channelId: 'notification-tkb',
     },
   });
+  
 };
+
+// Hàm gửi thông báo ngay lập tức
+export const sendImmediateNotification = async (title, body) => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+  
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: title || "Thông báo ngay lập tức!",
+        body: body || "Nội dung thông báo.",
+        data: { someData: 'some data' },
+      },
+      trigger: null
+    });
+  };
 
 export const cancelAllClassNotifications = async () => {
     try {

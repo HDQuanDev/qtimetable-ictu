@@ -6,10 +6,59 @@ import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from './screens/LoginScreen';
 import ThoiKhoaBieuScreen from './screens/ThoiKhoaBieuScreen';
 import { AuthProvider, useAuth } from './AuthContext';
-import Toast from 'react-native-toast-message';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import * as Notifications from 'expo-notifications';
+import { checkForUpdate } from './components/CheckUpdate';
+
+// Gọi hàm kiểm tra cập nhật
 
 const Stack = createStackNavigator();
+
+const toastConfig = {
+  /*
+    Overwrite 'success' type,
+    by modifying the existing `BaseToast` component
+  */
+  success: (props) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: 'pink' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: '400'
+      }}
+    />
+  ),
+  /*
+    Overwrite 'error' type,
+    by modifying the existing `ErrorToast` component
+  */
+  error: (props) => (
+    <ErrorToast
+      {...props}
+      text1Style={{
+        fontSize: 17
+      }}
+      text2Style={{
+        fontSize: 15
+      }}
+    />
+  ),
+  /*
+    Or create a completely new type - `tomatoToast`,
+    building the layout from scratch.
+
+    I can consume any custom `props` I want.
+    They will be passed when calling the `show` method (see below)
+  */
+  tomatoToast: ({ text1, props }) => (
+    <View style={{ height: 60, width: '100%', backgroundColor: 'tomato' }}>
+      <Text>{text1}</Text>
+      <Text>{props.uuid}</Text>
+    </View>
+  )
+};
 
 function Navigation() {
   const { isLoggedIn, isLoading } = useAuth();
@@ -39,7 +88,9 @@ function Navigation() {
 }
 
 export default function App() {
+
   useEffect(() => {
+    checkForUpdate();
 
     const requestPermissions = async () => {
       let { status } = await Notifications.getPermissionsAsync();
@@ -84,13 +135,29 @@ export default function App() {
 
     checkPermissions();
   }, []);
+  useEffect(() => {
+    // Thiết lập trình xử lý thông báo
+    const notificationHandler = async () => {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+        }),
+      });
+    };
+    notificationHandler();
+    return () => {
+
+    };
+  }, []);
 
   return (
     <AuthProvider>
       <NavigationContainer>
         <Navigation />
       </NavigationContainer>
-      <Toast />
+      <Toast config={toastConfig}/>
     </AuthProvider>
   );
 }

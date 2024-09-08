@@ -1,6 +1,7 @@
 // api.js
 import axios from 'axios';
-import { scheduleClassNotifications } from '../components/classNotifications';
+import { scheduleClassNotifications, scheduleExamNotifications } from '../components/classNotifications';
+import { cancelAllClassNotifications } from '../components/LocalNotification';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const periods = {
@@ -40,85 +41,95 @@ const getDateTimeStart = (startDate, thu, tietHoc) => {
     return date;
 };
 
+function pad(number) {
+    return (number < 10 ? '0' : '') + number;
+}
+
 const formatDateTime = (date) => {
     const pad = (num) => num.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00+07:00`;
 };
 
-const url_api = 'https://search.quanhd.net/get_tkb';
+const url_api = 'http://172.20.203.235:5000/get_tkb';
 
-export const api_login = async (username, password) => {
+export const api_ictu = async (username = '', password = '', type = 'login') => {
     try {
         const response = await axios.post(url_api, {
-            username: username,
-            password: password,
+            username: type === "login" ? username : await AsyncStorage.getItem('username'),
+            password: type === "login" ? password : await AsyncStorage.getItem('password'),
         });
-
         if (response.status === 200) {
-            const data = response.data;
+            await cancelAllClassNotifications();
+            const data = response.data.thoikhoabieu;
             const currentDate = new Date(); // Lấy ngày hiện tại
 
             for (const weekData of data) {
                 for (const item of weekData.data) {
                     const dateTimeStart = getDateTimeStart(
                         weekData.start_date,
-                        item['Thứ'],
-                        item['Tiết học']
+                        item['thu'],
+                        item['tiet_hoc']
                     );
 
                     if (dateTimeStart > currentDate) {
                         const formattedDate = formatDateTime(dateTimeStart);
                         await scheduleClassNotifications(
-                            item['Lớp học phần'],
+                            item['lop_hoc_phan'],
                             new Date(formattedDate),
-                            item['Địa điểm']
+                            item['dia_diem']
                         );
                     }
                 }
             }
-            return data;
-        }
+
+            // Xử lý lịch thi
+            if (response.data.lichthi) {
+                const examData = response.data.lichthi[0];
+                for (const item of examData) {
+                const [day, month, year] = item.ngay_thi.split('/');
+                const [startTime] = item.ca_thi.match(/\(([^)]+)\)/)[1].split('-');
+                const [hours, minutes] = startTime.split(':');
+                const date = new Date(year, month - 1, day, hours, minutes); // month - 1 vì tháng trong JavaScript bắt đầu từ 0
+                const examStart = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00+07:00`;
+                await scheduleExamNotifications(
+                    item.ten_hoc_phan,
+                    new Date(examStart),
+                    item.phong_thi,
+                    item.so_bao_danh
+                );
+                }
+            }
+            await AsyncStorage.setItem('userData_ThoiKhoaBieu', JSON.stringify(response.data.thoikhoabieu));
+            await AsyncStorage.setItem('userData_LichThi', JSON.stringify(response.data.lichthi[0]));
+            await AsyncStorage.setItem('userInfo', JSON.stringify(response.data.user_info));
+            await AsyncStorage.setItem('lastUpdate', new Date().toLocaleString('vi-VN'));
+                return response.data;
+            }
     } catch (error) {
         const errorMessage = error.response?.error || 'Đã xảy ra lỗi khi kết nối đến máy chủ API';
         throw new Error(errorMessage);
     }
 };
 
-export const api_reset_data = async () => {
+export const api_checkUpdate = async (app_version, type='one') => {
     try {
-        const response = await axios.post(url_api, {
-            username: await AsyncStorage.getItem('username'),
-            password: await AsyncStorage.getItem('password'),
-        });
-
+        const response = await axios.get('https://api.quanhd.net/tkb_app.json');
         if (response.status === 200) {
             const data = response.data;
-            const currentDate = new Date(); // Lấy ngày hiện tại
-
-            for (const weekData of data) {
-                for (const item of weekData.data) {
-                    const dateTimeStart = getDateTimeStart(
-                        weekData.start_date,
-                        item['Thứ'],
-                        item['Tiết học']
-                    );
-
-                    if (dateTimeStart > currentDate) {
-                        const formattedDate = formatDateTime(dateTimeStart);
-                        await scheduleClassNotifications(
-                            item['Lớp học phần'],
-                            new Date(formattedDate),
-                            item['Địa điểm']
-                        );
-                    }
-                }
+            if (data.app_version != app_version) {
+                return data.download_url;
+            }else if (data.app_version == app_version && type != 'one') {
+                return true;
+            }else{
+                return false;
             }
-            return data;
         }
-
-    }catch (error) {
+        return false;
+    } catch (error) {
+        console.log(error);
         const errorMessage = error.response?.error || 'Đã xảy ra lỗi khi kết nối đến máy chủ API';
         throw new Error(errorMessage);
     }
-}
+};
+
 
