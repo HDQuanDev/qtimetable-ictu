@@ -50,7 +50,7 @@ const formatDateTime = (date) => {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00+07:00`;
 };
 
-const url_api = 'http://172.20.203.235:5000/get_tkb';
+const url_api = 'https://search.quanhd.net/get_tkb';
 
 export const api_ictu = async (username = '', password = '', type = 'login') => {
     try {
