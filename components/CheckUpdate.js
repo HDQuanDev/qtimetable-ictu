@@ -1,33 +1,61 @@
 import NetInfo from '@react-native-community/netinfo';
 import { api_checkUpdate } from '../services/api';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
 
 export const checkForUpdate = async (type = 'one') => {
-  const appVersion = '1.1.beta';
-
-  // Kiểm tra trạng thái kết nối mạng
-  const state = await NetInfo.fetch();
-  if (state.isConnected) {
-      try {
-          const downloadUrl = await api_checkUpdate(appVersion, type);
-          if (downloadUrl && downloadUrl !== true) {
-              Alert.alert(
-                  'Cập nhật ứng dụng',
-                  'Đã có phiên bản mới của ứng dụng. Vui lòng cập nhật để sử dụng các tính năng mới.',
-                  [
-                      { text: 'Hủy', style: 'cancel' },
-                      { text: 'Cập nhật', onPress: () => {
-                          Linking.openURL(downloadUrl);
-                      } },
-                  ]
-              );
-          }else if (downloadUrl === true) {
-              Alert.alert('Thông báo', 'Bạn đang sử dụng phiên bản mới nhất của ứng dụng.');
-          }
-      } catch (error) {
-          Alert.alert('Lỗi', error.message);
-      }
-  } else {
-      Alert.alert('Thông báo', 'Không có kết nối internet.');
-  }
-};
+    const appVersion = '1.2.beta';
+  
+    // Kiểm tra trạng thái kết nối mạng
+    const state = await NetInfo.fetch();
+    if (state.isConnected) {
+        try {
+            const downloadUrl = await api_checkUpdate(appVersion, type);
+            if (downloadUrl && downloadUrl !== true) {
+                return {
+                    showModal: true,
+                    title: 'Cập nhật ứng dụng',
+                    content: 'Đã có phiên bản mới của ứng dụng. Vui lòng cập nhật để sử dụng các tính năng mới.',
+                    actionText: 'Cập nhật',
+                    actionColor: 'bg-blue-600',
+                    onActionPress: () => Linking.openURL(downloadUrl),
+                    closeText: 'Hủy',
+                    closeColor: 'bg-gray-700'
+                };
+            } else if (downloadUrl === true) {
+                return {
+                    showModal: true,
+                    title: 'Thông báo',
+                    content: 'Bạn đang sử dụng phiên bản mới nhất của ứng dụng.',
+                    actionText: null,
+                    actionColor: null,
+                    onActionPress: null,
+                    closeText: 'Đóng',
+                    closeColor: 'bg-gray-700'
+                };
+            }
+        } catch (error) {
+            return {
+                showModal: true,
+                title: 'Lỗi',
+                content: error.message,
+                actionText: null,
+                actionColor: null,
+                onActionPress: null,
+                closeText: 'Đóng',
+                closeColor: 'bg-gray-700'
+            };
+        }
+    } else {
+        return {
+            showModal: true,
+            title: 'Thông báo',
+            content: 'Không có kết nối internet.',
+            actionText: null,
+            actionColor: null,
+            onActionPress: null,
+            closeText: 'Đóng',
+            closeColor: 'bg-gray-700'
+        };
+    }
+  };
+  

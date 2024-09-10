@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, FlatList, Modal, ScrollView, Alert, ActivityIndicator, Animated, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, Modal, ScrollView, Alert, ActivityIndicator, Animated, Linking, useWindowDimensions  } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../AuthContext';
@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api_ictu } from '../services/api';
 import { checkForUpdate } from '../components/CheckUpdate';
+import ModalComponent from '../components/ModalComponent';
 
 // Vietnamese locale configuration for the calendar
 LocaleConfig.locales['vi'] = {
@@ -54,6 +55,11 @@ export default function ThoiKhoaBieuScreen() {
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMenuVisible, setMenuVisible] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [isAboutModalVisible, setAboutModalVisible] = useState(false);
+  const [isChangelogModalVisible, setChangelogModalVisible] = useState(false);
+  const [modalProps, setModalProps] = useState(null);
+  const [notification, setNotification] = useState(null);
 
   const openMenu = () => {
     setMenuVisible(true);
@@ -65,12 +71,8 @@ export default function ThoiKhoaBieuScreen() {
   };
 
   // Hàm xử lý khi chọn các tùy chọn
-  const handleMenuOption = (option) => {
-    closeMenu();
+  const handleMenuOption = async (option) => {
     switch (option) {
-      case 'about':
-        Alert.alert('Thông tin ứng dụng', 'Đây là ứng dụng xem thời khóa biểu và lịch thi đpưn giản của sinh viên trường Đại học Công nghệ Thông tin - Đại học Thái Nguyên.\n- Ứng dụng được viết bằng React Native và Expo.\n- Dữ liệu được lấy từ hệ thống DangKyTinChi của trường.\n- Phát triển bởi Hứa Đức Quân.');
-        break;
       case 'source':
         Linking.openURL('https://github.com/HDQuanDev/qtimetable-ictu');
         break;
@@ -78,7 +80,8 @@ export default function ThoiKhoaBieuScreen() {
         Linking.openURL('https://facebook.com/quancp72h');
         break;
       case 'update':
-        checkForUpdate('all');
+        const updateInfo = await checkForUpdate('all');
+        setModalProps(updateInfo);
         break;
       default:
         break;
@@ -92,6 +95,7 @@ export default function ThoiKhoaBieuScreen() {
       await fetchUserInfo();
       await fetchTimeUpdate();
       const today = new Date();
+      today.setHours(today.getHours() + 7);
       const todayDateString = today.toISOString().split('T')[0];
       setSelectedDate(todayDateString);
       setCurrentWeekStartDate(getWeekStartDate(todayDateString));
@@ -150,6 +154,7 @@ export default function ThoiKhoaBieuScreen() {
 
   const getWeekStartDate = useCallback((dateString) => {
     const date = new Date(dateString);
+    date.setHours(date.getHours() + 7);
     const dayOfWeek = date.getDay();
     const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
     return new Date(date.setDate(diff)).toISOString().split('T')[0];
@@ -252,14 +257,14 @@ export default function ThoiKhoaBieuScreen() {
   const handleResetData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await api_ictu(await AsyncStorage.getItem('username'), await AsyncStorage.getItem('password'), 'reset');
+      await api_ictu(await AsyncStorage.getItem('username'), await AsyncStorage.getItem('password'), 'reset');
       await AsyncStorage.setItem('lastUpdate', new Date().toLocaleString('vi-VN'));
       // Fetch and update the schedule data after reset
       await fetchScheduleData();
       await fetchExamData();
       await fetchUserInfo();
       await fetchTimeUpdate();
-      Alert.alert('Thành công', 'Dữ liệu đã được cập nhật.');
+      setNotification(true);
     } catch (error) {
       console.error('Error resetting data:', error);
       Alert.alert('Lỗi', 'Không thể cập nhật dữ liệu. Vui lòng thử lại sau.');
@@ -272,92 +277,109 @@ export default function ThoiKhoaBieuScreen() {
     const [startPeriod, endPeriod] = item['tiet_hoc'].split(' --> ').map(Number);
     const startTime = periods[startPeriod].start;
     const endTime = periods[endPeriod].end;
-
+  
     const selectedClass = { ...item, startTime, endTime };
-
+  
     return (
       <TouchableOpacity
         onPress={() => {
           setSelectedClass(selectedClass);
           setModalVisible(true);
         }}
-        className="flex-row items-center mb-4"
+        className="mb-4 mx-2"
       >
         <LinearGradient
-          colors={['#f0f8ff', '#e6f3ff']}
+          colors={['#2c2c2c', '#1f1f1f']} // Các màu tối cho gradient
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          className="p-4 rounded-lg shadow-md flex-1"
+          className="p-4 rounded-3xl shadow-md"
         >
-          <View className="flex-row justify-between items-center mb-2">
-          <View className="bg-green-500 px-3 py-1 rounded-full">
-              <Text className="text-white font-medium text-sm">Lịch Học</Text>
+          <View className="flex-row justify-between items-center mb-3">
+            <View className="bg-gray-700 px-3 py-1 rounded-full"> 
+              <Text className="text-white font-semibold text-xs">Lịch Học</Text>
+            </View>
+            <View className="bg-gray-600 px-3 py-1 rounded-full">
+              <Text className="text-white font-semibold text-xs">{startTime} - {endTime}</Text>
             </View>
           </View>
-          <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-lg font-bold text-gray-800 flex-1 mr-2">{item['lop_hoc_phan']}</Text>
-            <View className="bg-blue-500 px-3 py-1 rounded-full">
-              <Text className="text-white font-medium text-sm">{startTime} - {endTime}</Text>
-            </View>
+  
+          <Text className="text-xl font-bold text-white mb-3 leading-tight" numberOfLines={2} ellipsizeMode="tail">
+            {item['lop_hoc_phan']}
+          </Text>
+  
+          <View className="flex-row items-center mb-2">
+            <Ionicons name="person-outline" size={18} color="#a0aec0" />
+            <Text className="text-gray-400 ml-2 text-sm font-medium flex-1" numberOfLines={1} ellipsizeMode="tail">
+              {item['giang_vien']}
+            </Text>
           </View>
-          <View className="flex-row items-center mb-1">
-            <Ionicons name="person-outline" size={16} color="#4a5568" />
-            <Text className="text-gray-600 ml-2">{item['giang_vien']}</Text>
-          </View>
+  
           <View className="flex-row items-center">
-            <Ionicons name="location-outline" size={16} color="#4a5568" />
-            <Text className="text-gray-600 ml-2">{item['dia_diem']}</Text>
+            <Ionicons name="location-outline" size={18} color="#a0aec0" />
+            <Text className="text-gray-400 ml-2 text-sm font-medium flex-1" numberOfLines={1} ellipsizeMode="tail">
+              {item['dia_diem']}
+            </Text>
           </View>
         </LinearGradient>
       </TouchableOpacity>
     );
-    
-  }, []);
-
+  }, [periods, setSelectedClass, setModalVisible]);
+  
   const renderExamItem = useCallback(({ item }) => {
     const [startTime, endTime] = item.ca_thi.match(/\(([^)]+)\)/)[1].split('-');
-
+  
     return (
       <TouchableOpacity
         onPress={() => {
           setSelectedExam(item);
           setExamModalVisible(true);
         }}
-        className="flex-row items-center mb-4"
+        className="mb-4 mx-2"
       >
         <LinearGradient
-          colors={['#fff0f0', '#ffe6e6']}
+          colors={['#2c2c2c', '#1f1f1f']} // Màu nền tối
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          className="p-4 rounded-lg shadow-md flex-1"
+          className="p-4 rounded-3xl shadow-md"
         >
-          <View className="flex-row justify-between items-center mb-2">
-          <View className="bg-red-500 px-3 py-1 rounded-full">
-              <Text className="text-white font-medium text-sm">Lịch Thi</Text>
+          <View className="flex-row justify-between items-center mb-3">
+            <View className="bg-red-600 px-3 py-1 rounded-full">
+              <Text className="text-white font-semibold text-xs">Lịch Thi</Text>
+            </View>
+            <View className="bg-cyan-600 px-3 py-1 rounded-full">
+              <Text className="text-white font-semibold text-xs">{startTime} - {endTime}</Text>
             </View>
           </View>
-          <View className="flex-row justify-between items-start mb-2">
-            <Text className="text-lg font-bold text-gray-800 flex-1 mr-2">
-              {item.ten_hoc_phan} ({item.ma_hoc_phan}) - SDB: {item.so_bao_danh}
+  
+          <Text className="text-xl font-bold text-white mb-3 leading-tight" numberOfLines={2} ellipsizeMode="tail">
+            {item.ten_hoc_phan}
+          </Text>
+  
+          <View className="flex-row items-center mb-2">
+            <Ionicons name="code-outline" size={18} color="#a0aec0" />
+            <Text className="text-gray-400 ml-2 text-sm font-medium">
+              Mã HP: {item.ma_hoc_phan} | SBD: {item.so_bao_danh}
             </Text>
-            <View className="bg-cyan-500 px-3 py-1 rounded-full">
-              <Text className="text-white font-medium text-sm">{startTime} - {endTime}</Text>
-            </View>
           </View>
-          <View className="flex-row items-center mb-1">
-            <Ionicons name="document-text-outline" size={16} color="#4a5568" />
-            <Text className="text-gray-600 ml-2">{item.hinh_thuc_thi}</Text>
+  
+          <View className="flex-row items-center mb-2">
+            <Ionicons name="document-text-outline" size={18} color="#a0aec0" />
+            <Text className="text-gray-400 ml-2 text-sm font-medium flex-1" numberOfLines={1} ellipsizeMode="tail">
+              {item.hinh_thuc_thi}
+            </Text>
           </View>
+  
           <View className="flex-row items-center">
-            <Ionicons name="location-outline" size={16} color="#4a5568" />
-            <Text className="text-gray-600 ml-2">{item.phong_thi}</Text>
+            <Ionicons name="location-outline" size={18} color="#a0aec0" />
+            <Text className="text-gray-400 ml-2 text-sm font-medium flex-1" numberOfLines={1} ellipsizeMode="tail">
+              {item.phong_thi}
+            </Text>
           </View>
         </LinearGradient>
       </TouchableOpacity>
     );
-    
-
-  }, []);
+  }, [setSelectedExam, setExamModalVisible]);
+  
 
   const memoizedCalendar = useMemo(() => (
     <Calendar
@@ -366,59 +388,84 @@ export default function ThoiKhoaBieuScreen() {
         [selectedDate]: {
           selected: true,
           disableTouchEvent: true,
-          selectedColor: '#3B82F6',
+          selectedColor: '#2563EB',  // Màu xanh đậm hơn cho chế độ tối
+          selectedTextColor: '#FFFFFF',
         },
         ...examData.reduce((acc, exam) => {
           const examDate = convertDateFormat(exam.ngay_thi);
           acc[examDate] = {
             ...acc[examDate],
             marked: true,
-            dotColor: 'red'
+            dotColor: '#EF4444',
+            activeOpacity: 0.8,  // Giúp nút tương tác tốt hơn
           };
           return acc;
         }, {})
       }}
       firstDay={1}
-      className="border border-gray-200 rounded-lg mt-4"
+      style={{ borderWidth: 1, borderColor: '#374151', borderRadius: 10, marginTop: 10, padding: 15 }}  // Thay đổi màu viền
       theme={{
-        backgroundColor: 'transparent',
-        calendarBackground: 'transparent',
-        textSectionTitleColor: '#64748B',
-        monthTextColor: '#1E293B',
-        arrowColor: '#3B82F6',
-        todayTextColor: '#3B82F6',
-        dayTextColor: '#1E293B',
-        textDisabledColor: '#94A3B8',
+        backgroundColor: '#1F2937',  // Màu nền tối
+        calendarBackground: '#1F2937',  // Màu nền lịch tối
+        textSectionTitleColor: '#94A3B8',  // Màu chữ phần tiêu đề
+        monthTextColor: '#F9FAFB',  // Màu chữ tháng
+        arrowColor: '#2563EB',  // Màu mũi tên điều hướng
+        todayTextColor: '#3B82F6',  // Màu ngày hôm nay
+        dayTextColor: '#F3F4F6',  // Màu chữ ngày thường
+        textDisabledColor: '#6B7280',  // Màu chữ ngày không khả dụng
+        selectedDayBackgroundColor: '#2563EB',  // Nền ngày được chọn
+        selectedDayTextColor: '#FFFFFF',  // Màu chữ ngày được chọn
+        dotColor: '#EF4444',  // Màu chấm đỏ cho các ngày có kỳ thi
+        selectedDotColor: '#FFFFFF',  // Màu chấm cho ngày đã chọn
       }}
       dayComponent={({ date, state }) => (
         <TouchableOpacity
           onPress={() => handleDayPress(date)}
-          className={`w-10 h-10 items-center justify-center ${
-            state === 'disabled' ? 'opacity-30' : ''
-          } ${state === 'today' ? 'bg-blue-100' : ''} ${
-            selectedDate === date.dateString ? 'bg-blue-500' : ''
-          }`}
+          style={{
+            width: 40,  // Đảm bảo phù hợp với nhiều kích thước màn hình
+            height: 40,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 20,
+            backgroundColor: selectedDate === date.dateString
+              ? '#2563EB'  // Màu nền cho ngày được chọn
+              : state === 'today' ? '#2563EB20' : 'transparent',  // Màu nhạt cho ngày hôm nay
+          }}
         >
           <Text
-            className={`text-center ${
-              state === 'disabled' ? 'text-gray-400' : 'text-gray-700'
-            } ${state === 'today' ? 'font-bold text-blue-500' : ''} ${
-              selectedDate === date.dateString ? 'text-white' : ''
-            }`}
+            style={{
+              fontSize: 16,
+              fontWeight: state === 'today' ? 'bold' : 'normal',
+              color: selectedDate === date.dateString
+                ? '#FFFFFF'
+                : state === 'disabled' ? '#6B7280' : '#D1D5DB',  // Màu chữ của ngày
+            }}
           >
             {date.day}
           </Text>
-          <View className="flex-row justify-center mt-1">
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 4 }}>
             {[...Array(Math.min(3, getNumberOfClassesForDay(date.dateString)))].map((_, i) => (
               <View
                 key={`class-${i}`}
-                className="w-1 h-1 bg-green-500 rounded-full mx-0.5"
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: '#10B981',  // Màu xanh cho chấm class
+                  borderRadius: 3,
+                  marginHorizontal: 1,
+                }}
               />
             ))}
             {[...Array(Math.min(3, getNumberOfExamsForDay(date.dateString)))].map((_, i) => (
               <View
                 key={`exam-${i}`}
-                className="w-1 h-1 bg-red-500 rounded-full mx-0.5"
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: '#EF4444',  // Màu đỏ cho chấm exam
+                  borderRadius: 3,
+                  marginHorizontal: 1,
+                }}
               />
             ))}
           </View>
@@ -426,149 +473,181 @@ export default function ThoiKhoaBieuScreen() {
       )}
     />
   ), [selectedDate, handleDayPress, getNumberOfClassesForDay, getNumberOfExamsForDay, examData, convertDateFormat]);
-
-  const WeekDayButton = useCallback(({ day }) => (
-    <TouchableOpacity
-      onPress={() => handleDayPress(day)}
-      className={`p-3 rounded-full mr-2 ${
-        selectedDate === day.dateString
-          ? 'bg-blue-500'
-          : 'bg-gray-100'
-      }`}
-    >
-      <Text className={`font-medium ${
-        selectedDate === day.dateString
-          ? 'text-white'
-          : 'text-gray-800'
-      }`}>
-        {day.dayOfWeek}
-      </Text>
-      <Text className={`text-center font-bold ${
-        selectedDate === day.dateString
-          ? 'text-white' : 'text-gray-800'
-      }`}>
-        {day.dayOfMonth}
-      </Text>
-      <View className="flex-row justify-center mt-1">
-        {[...Array(Math.min(3, getNumberOfClassesForDay(day.dateString)))].map((_, i) => (
-          <View
-            key={`class-${i}`}
-            className="w-1 h-1 bg-green-500 rounded-full mx-0.5"
-          />
-        ))}
-        {[...Array(Math.min(3, getNumberOfExamsForDay(day.dateString)))].map((_, i) => (
-          <View
-            key={`exam-${i}`}
-            className="w-1 h-1 bg-red-500 rounded-full mx-0.5"
-          />
-        ))}
-      </View>
-    </TouchableOpacity>
-  ), [selectedDate, handleDayPress, getNumberOfClassesForDay, getNumberOfExamsForDay]);
-
+  
+  const WeekDayButton = useCallback(({ day }) => {
+    const { width } = useWindowDimensions();
+    const buttonWidth = (width - 32) / 7 - 8; // 32 cho padding ngang, 7 cho ngày, 8 cho margin
+  
+    return (
+      <TouchableOpacity
+        onPress={() => handleDayPress(day)}
+        style={{ width: buttonWidth }}
+        className={`p-2 rounded-2xl mr-1 ${
+          selectedDate === day.dateString
+            ? 'bg-blue-600'  // Màu xanh đậm hơn cho ngày được chọn
+            : 'bg-gray-700'  // Màu nền tối cho các ngày khác
+        }`}
+      >
+        <Text 
+          className={`text-xs font-medium text-center ${
+            selectedDate === day.dateString
+              ? 'text-white'  // Màu chữ trắng cho ngày được chọn
+              : 'text-gray-300'  // Màu chữ nhạt cho các ngày khác
+          }`}
+          numberOfLines={1}
+        >
+          {day.dayOfWeek}
+        </Text>
+        <Text 
+          className={`text-center font-bold ${
+            selectedDate === day.dateString
+              ? 'text-white'  // Màu trắng cho số ngày được chọn
+              : 'text-gray-300'  // Màu chữ nhạt cho số ngày khác
+          }`}
+        >
+          {day.dayOfMonth}
+        </Text>
+        <View className="flex-row justify-center mt-1">
+          {[...Array(Math.min(2, getNumberOfClassesForDay(day.dateString)))].map((_, i) => (
+            <View
+              key={`class-${i}`}
+              className="w-1 h-1 bg-green-400 rounded-full mx-0.5"  // Màu xanh sáng hơn cho các lớp học
+            />
+          ))}
+          {[...Array(Math.min(2, getNumberOfExamsForDay(day.dateString)))].map((_, i) => (
+            <View
+              key={`exam-${i}`}
+              className="w-1 h-1 bg-red-400 rounded-full mx-0.5"  // Màu đỏ sáng hơn cho các kỳ thi
+            />
+          ))}
+        </View>
+      </TouchableOpacity>
+    );
+  }, [selectedDate, handleDayPress, getNumberOfClassesForDay, getNumberOfExamsForDay]);
+  
   const UserInfo = ({ user, lastUpdateTime }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [fadeAnim] = useState(new Animated.Value(1));
+    const fadeAnim = useRef(new Animated.Value(1)).current;
   
     const userInfoSections = [
-      `Tên: ${user.name}`,
-      `Mã sinh viên: ${user.masinhvien}`,
-      `Ngành: ${user.nganh}`,
-      `Khóa: ${user.khoa}`,
-      `Phát triển bởi: Hứa Đức Quân`,
+      { label: 'Tên', value: user.name },
+      { label: 'Mã sinh viên', value: user.masinhvien },
+      { label: 'Ngành', value: user.nganh },
+      { label: 'Khóa', value: user.khoa },
+      { label: 'Phát triển bởi', value: 'Hứa Đức Quân' },
     ];
   
     useEffect(() => {
-      let index = 0;
-      const interval = setInterval(() => {
-        setCurrentIndex(index);
-        index = (index + 1) % userInfoSections.length;
-      }, 3000); // Thay đổi mỗi 3 giây
+      const animateText = () => {
+        Animated.sequence([
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      };
   
-      return () => clearInterval(interval); // Dọn dẹp interval khi component unmount
-    }, []);
+      const interval = setInterval(() => {
+        animateText();
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % userInfoSections.length);
+      }, 3000);
+  
+      return () => clearInterval(interval);
+    }, [fadeAnim, userInfoSections.length]);
   
     return (
-      <View className="bg-white bg-opacity-20 rounded-lg p-4 mb-4">
+      <View className="bg-gray-800 bg-opacity-60 rounded-3xl p-4 mb-4 shadow-lg">
         <Animated.View style={{ opacity: fadeAnim }}>
-          <Text className="text-gray-700 text-lg font-semibold">
-            {userInfoSections[currentIndex]}
+          <Text className="text-gray-300 text-sm font-semibold">
+            {userInfoSections[currentIndex].label}
+          </Text>
+          <Text className="text-gray-100 text-lg font-medium">
+            {userInfoSections[currentIndex].value}
           </Text>
         </Animated.View>
-        <Text className="text-gray-400 text-sm mt-1">
-          Cập nhật lần cuối: {lastUpdateTime || 'Chưa có thông tin'}
+        <Text className="text-gray-400 text-xs italic">
+          Cập nhật dữ liệu lần cuối: {lastUpdateTime || 'Chưa có thông tin'}
         </Text>
       </View>
     );
   };
+  
 
   return (
     <GestureHandlerRootView className="flex-1">
-      <StatusBar barStyle="light-content" />
-      <LinearGradient
-        colors={['#4c669f', '#3b5998', '#192f6a']}
-        className="flex-1"
+    <StatusBar barStyle="light-content" />
+    <LinearGradient
+  colors={['#1f1f1f', '#121212', '#000000']}
+  className="flex-1"
+  >
+      <PanGestureHandler
+        onHandlerStateChange={handleSwipe}
+        activeOffsetX={[-20, 20]}
       >
-        <PanGestureHandler
-          onHandlerStateChange={handleSwipe}
-          activeOffsetX={[-20, 20]}
+        <View className="flex-1 px-4 pt-12">
+          <View className="flex-row justify-between items-center mb-6">
+          <Text className="text-white text-3xl font-bold">Lịch học và thi - ICTU</Text>
+          <TouchableOpacity 
+          onPress={handleResetData} 
+          disabled={isLoading}
+          className="bg-gray-800 bg-opacity-20 p-2 rounded-full"
         >
-          <View className="flex-1 p-4 pt-12">
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-3xl font-bold text-white">
-                Lịch học và thi - ICTU
-              </Text>
-              <TouchableOpacity onPress={handleResetData} disabled={isLoading}>
-                <Ionicons name="refresh" size={24} color="white" />
-              </TouchableOpacity>
-            </View>
-
-            <UserInfo user={user} lastUpdateTime={lastUpdateTime} />
-
-            <View className="bg-white rounded-2xl shadow-lg p-4 mb-4">
-              <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                data={currentWeekStartDate ? getWeekDays(currentWeekStartDate) : []}
-                renderItem={({ item: day }) => <WeekDayButton day={day} />}
-                keyExtractor={(day) => day.dateString}
-                className="mb-4"
-              />
-
-              <TouchableOpacity
-                onPress={() => setCalendarExpanded(!calendarExpanded)}
-                className="flex-row items-center justify-center py-2 bg-gray-100 rounded-full"
-              >
-                <Text className="text-gray-800 font-medium mr-2">
-                  {calendarExpanded ? 'Thu gọn' : 'Xem lịch tháng'}
-                </Text>
-                <Ionicons
-                  name={calendarExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color="#4a5568"
-                />
-              </TouchableOpacity>
-
-              {calendarExpanded && memoizedCalendar}
-            </View>
-
-            <FlatList
-              data={[...getScheduleForDate(), ...getExamsForDate()]}
-              renderItem={({ item }) => item.ca_thi ? renderExamItem({ item }) : renderClassItem({ item })}
-              keyExtractor={(item, index) => `${item.STT}-${index}`}
-              ListEmptyComponent={
-                <View className="bg-white p-4 rounded-lg">
-                  <Text className="text-center text-gray-600 italic">
-                    Không có lớp học hoặc lịch thi nào trong ngày này.
-                  </Text>
-                  <Text className="text-center text-orange-500 italic mt-2">
-                    Bạn có thể vuốt sang trái hoặc phải để xem lịch của các ngày khác.
-                  </Text>
-                </View>
-              }
-            />
+          <Ionicons name="refresh" size={24} color="white" />
+        </TouchableOpacity>
           </View>
-        </PanGestureHandler>
+
+          <UserInfo user={user} lastUpdateTime={lastUpdateTime} />
+
+          <View className="bg-gray-800 rounded-3xl shadow-lg p-4 mb-6">
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={currentWeekStartDate ? getWeekDays(currentWeekStartDate) : []}
+              renderItem={({ item: day }) => <WeekDayButton day={day} />}
+              keyExtractor={(day) => day.dateString}
+              className="mb-4"
+            />
+
+            <TouchableOpacity
+              onPress={() => setCalendarExpanded(!calendarExpanded)}
+              className="flex-row items-center justify-center py-3 bg-gray-900 rounded-full"
+            >
+              <Text className="text-white font-medium mr-2">
+                {calendarExpanded ? 'Thu gọn' : 'Xem lịch tháng'}
+              </Text>
+              <Ionicons
+                name={calendarExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#ffffff"
+              />
+            </TouchableOpacity>
+
+            {calendarExpanded && memoizedCalendar}
+          </View>
+
+          <FlatList
+            data={[...getScheduleForDate(), ...getExamsForDate()]}
+            renderItem={({ item }) => item.ca_thi ? renderExamItem({ item }) : renderClassItem({ item })}
+            keyExtractor={(item, index) => `${item.STT}-${index}`}
+            ListEmptyComponent={
+              <View className="bg-gray-800 p-6 rounded-2xl shadow-md">
+                <Text className="text-center text-gray-200 italic text-lg">
+                  Không có lớp học hoặc lịch thi nào trong ngày này.
+                </Text>
+                <Text className="text-center text-orange-500 italic mt-3 text-base">
+                  Bạn có thể vuốt sang trái hoặc phải để xem lịch của các ngày khác.
+                </Text>
+              </View>
+            }
+          />
+        </View>
+      </PanGestureHandler>
 
         <Modal
           animationType="slide"
@@ -577,16 +656,16 @@ export default function ThoiKhoaBieuScreen() {
           onRequestClose={() => setModalVisible(false)}
         >
           <View className="flex-1 justify-center items-center bg-opacity-25 block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-            <View className="bg-violet-100 rounded-lg p-6 w-11/12 max-h-5/6">
+            <View className="bg-gray-900 rounded-lg p-6 w-11/12 max-h-5/6">
               <ScrollView>
                 {selectedClass && (
                   <>
-                    <Text className="text-2xl font-bold mb-4">{selectedClass['lop_hoc_phan']}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Môn học:</Text> {selectedClass['lop_hoc_phan']}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Giảng viên:</Text> {selectedClass['giang_vien']}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Địa điểm:</Text> {selectedClass['dia_diem']}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Thời gian:</Text> {selectedClass['tiet_hoc']} ({selectedClass['startTime']} - {selectedClass['endTime']})</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Tuần học:</Text> {selectedClass['tuan_hoc']}</Text>
+                    <Text className="text-gray-300 text-center text-2xl font-bold mb-4">{selectedClass['lop_hoc_phan']}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Môn học:</Text> {selectedClass['lop_hoc_phan']}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Giảng viên:</Text> {selectedClass['giang_vien']}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Địa điểm:</Text> {selectedClass['dia_diem']}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Thời gian:</Text> {selectedClass['tiet_hoc']} ({selectedClass['startTime']} - {selectedClass['endTime']})</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Tuần học:</Text> {selectedClass['tuan_hoc']}</Text>
                   </>
                 )}
               </ScrollView>
@@ -607,18 +686,18 @@ export default function ThoiKhoaBieuScreen() {
           onRequestClose={() => setExamModalVisible(false)}
         >
           <View className="flex-1 justify-center items-center bg-opacity-25 block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-            <View className="bg-red-100 rounded-lg p-6 w-11/12 max-h-5/6">
+            <View className="bg-gray-900 rounded-lg p-6 w-11/12 max-h-5/6">
               <ScrollView>
                 {selectedExam && (
                   <>
-                    <Text className="text-2xl font-bold mb-4">{selectedExam.ten_hoc_phan}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Mã học phần:</Text> {selectedExam.ma_hoc_phan}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Ngày thi:</Text> {selectedExam.ngay_thi}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Ca thi:</Text> {selectedExam.ca_thi}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Phòng thi:</Text> {selectedExam.phong_thi}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Hình thức thi:</Text> {selectedExam.hinh_thuc_thi}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Số báo danh:</Text> {selectedExam.so_bao_danh}</Text>
-                    <Text className="text-lg mb-2"><Text className="font-semibold">Số tín chỉ:</Text> {selectedExam.so_tc}</Text>
+                    <Text className="text-red-500 text-center text-2xl font-bold mb-4">{selectedExam.ten_hoc_phan}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Mã học phần:</Text> {selectedExam.ma_hoc_phan}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Ngày thi:</Text> {selectedExam.ngay_thi}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Ca thi:</Text> {selectedExam.ca_thi}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Phòng thi:</Text> {selectedExam.phong_thi}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Hình thức thi:</Text> {selectedExam.hinh_thuc_thi}</Text>
+                    <Text className="text-gray-500 text-lg mb-2"><Text className="font-semibold">Số báo danh:</Text> {selectedExam.so_bao_danh}</Text>
+                    <Text className="text-gray-500 first-letter:text-lg mb-2"><Text className="font-semibold">Số tín chỉ:</Text> {selectedExam.so_tc}</Text>
                     {selectedExam.ghi_chu && (
                       <Text className="text-lg mb-2"><Text className="font-semibold">Ghi chú:</Text> {selectedExam.ghi_chu}</Text>
                     )}
@@ -636,15 +715,36 @@ export default function ThoiKhoaBieuScreen() {
         </Modal>
         
         <TouchableOpacity
-          className="absolute bottom-4 left-4 bg-blue-500 rounded-full w-12 h-12 justify-center items-center shadow-lg"
-        onPress={() => {
-        // Mở menu
-        openMenu();
-      }}
-    >
-      <Ionicons name="menu-outline" size={24} color="white" />
-    </TouchableOpacity>
+        className="absolute bottom-6 left-6 bg-blue-500 rounded-full w-14 h-14 justify-center items-center shadow-lg"
+        onPress={openMenu}
+      >
+        <Ionicons name="menu-outline" size={28} color="white" />
+      </TouchableOpacity>
 
+      {modalProps && (
+        <ModalComponent
+          visible={modalProps.showModal}
+          onClose={() => setModalProps(null)}
+          title={modalProps.title}
+          content={modalProps.content}
+          closeText={modalProps.closeText}
+          closeColor={modalProps.closeColor}
+          actionText={modalProps.actionText}
+          actionColor={modalProps.actionColor}
+          onActionPress={modalProps.onActionPress}
+        />
+      )}
+
+      {notification && (
+        <ModalComponent
+          visible={notification}
+          onClose={() => setNotification(null)}
+          title="Cập nhật dữ liệu"
+          content="Dữ liệu đã được cập nhật thành công."
+          closeText="Đóng"
+          closeColor="bg-blue-500"
+        />
+      )}
  {/* Modal Menu */}
         <Modal
           transparent={true}
@@ -653,78 +753,133 @@ export default function ThoiKhoaBieuScreen() {
           onRequestClose={closeMenu}
         >
           <View className="flex-1 justify-center items-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-            <View className="bg-white rounded-lg w-3/4 overflow-hidden">
-              <LinearGradient
-                colors={['#f0f9ff', '#cbebff']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                className="p-6"
-              >
-                <Text className="text-lg font-bold text-center mb-4 text-gray-800">Menu</Text>
+            <View className="rounded-xl w-3/4 overflow-hidden bg-white">
+            <LinearGradient
+            colors={['#2f2f2f', '#1c1c1c']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="p-6"
+          >
+                <Text className="text-2xl font-bold text-center mb-4 text-gray-300">Menu</Text>
 
                 {/* Thêm nút có hiệu ứng hover */}
-                <TouchableOpacity className="mb-4 bg-blue-400 rounded-md p-3 hover:bg-blue-600" onPress={() => handleMenuOption('about')}>
+                <TouchableOpacity className="mb-4 bg-gray-700 rounded-md p-3 hover:bg-gray-600" onPress={() => setAboutModalVisible(true)}>
                   <Text className="text-white text-center">Thông tin ứng dụng</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity className="mb-4 bg-green-400 rounded-md p-3 hover:bg-green-600" onPress={() => handleMenuOption('source')}>
+                <ModalComponent
+                visible={isAboutModalVisible}
+                onClose={() => setAboutModalVisible(false)}
+                title="Thông tin ứng dụng"
+                content={`Đây là ứng dụng xem thời khóa biểu và lịch thi đơn giản của sinh viên trường Đại học Công nghệ Thông tin - Đại học Thái Nguyên.\n- Ứng dụng được viết bằng React Native và Expo.\n- Dữ liệu được lấy từ hệ thống DangKyTinChi của trường.\n ** Phát triển bởi Hứa Đức Quân. **`}
+                closeText={'Đóng'}
+                closeColor={'bg-gray-700'}
+              />
+                {/* Thêm nút nhật ký thay đổi màu nền và hover */}
+                <TouchableOpacity className="mb-4 bg-pink-700 rounded-md p-3 hover:bg-green-500" onPress={() => setChangelogModalVisible(true)}>
+                  <Text className="text-white text-center">Nhật ký thay đổi</Text>
+                </TouchableOpacity>
+
+                <ModalComponent
+                visible={isChangelogModalVisible}
+                onClose={() => setChangelogModalVisible(false)}
+                title="Nhật ký thay đổi"
+                content={`** Phiên bản 1.2.beta **\n- Chuyển đổi qua giao diện tối\n- Thêm chức năng xem lịch thi.\n- Thêm chức năng xem thông tin ứng dụng.\n- Thêm chức năng kiểm tra cập nhật.\n- Cải thiện hiệu suất và giao diện.\n- Sửa lỗi và cải thiện tính ổn định.`}
+                closeText={'Đóng'}
+                closeColor={'bg-pink-700'}
+              />
+                {/* Thay đổi màu nền và hover để phù hợp với chế độ tối */}
+                <TouchableOpacity className="mb-4 bg-green-700 rounded-md p-3 hover:bg-green-500" onPress={() => handleMenuOption('source')}>
                   <Text className="text-white text-center">Mã nguồn</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity className="mb-4 bg-purple-400 rounded-md p-3 hover:bg-purple-600" onPress={() => handleMenuOption('contact')}>
+                <TouchableOpacity className="mb-4 bg-purple-700 rounded-md p-3 hover:bg-purple-500" onPress={() => handleMenuOption('contact')}>
                   <Text className="text-white text-center">Liên hệ</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity className="mb-4 bg-yellow-400 rounded-md p-3 hover:bg-yellow-600" onPress={() => handleMenuOption('update')}>
+                <TouchableOpacity className="mb-4 bg-yellow-600 rounded-md p-3 hover:bg-yellow-400" onPress={() => handleMenuOption('update')}>
                   <Text className="text-white text-center">Kiểm tra cập nhật</Text>
                 </TouchableOpacity>
 
-                {/* Nút đóng */}
-                <TouchableOpacity onPress={closeMenu} className="mt-4 bg-red-400 rounded-md p-3 hover:bg-red-600">
+                {/* Nút đóng với màu tối hơn và hiệu ứng hover */}
+                <TouchableOpacity onPress={closeMenu} className="mt-4 bg-red-600 rounded-md p-3 hover:bg-red-400">
                   <Text className="text-white text-center">Đóng</Text>
                 </TouchableOpacity>
 
-                {/* Đường kẻ ngang để phân chia */}
-                <View className="border-t border-gray-300 my-4"></View>
+                {/* Đường kẻ ngang, thay đổi màu cho chế độ tối */}
+                <View className="border-t border-gray-500 my-4"></View>
 
-                {/* Hiển thị thông tin ứng dụng */}
+                {/* Hiển thị thông tin ứng dụng với màu sáng hơn */}
                 <View className="flex items-center">
-                  <Text className="text-sm text-gray-600 mb-1 text-center">Package ID: <Text className="font-semibold text-gray-800">com.hdquandev.thoikhoabieuapp</Text> | Version: <Text className="font-semibold text-gray-800">1.1.beta</Text></Text>
+                  <Text className="text-sm text-gray-300 mb-1 text-center">
+                    Package ID: <Text className="font-semibold text-gray-100">com.hdquandev.thoikhoabieuapp</Text> | 
+                    Version: <Text className="font-semibold text-gray-100">1.2.beta</Text> | Powered by <Text className="font-semibold text-gray-100">Hứa Đức Quân</Text>
+                  </Text>
                 </View>
-
               </LinearGradient>
             </View>
           </View>
         </Modal>
-        <TouchableOpacity
-          className="absolute bottom-4 right-4 bg-red-500 rounded-full w-12 h-12 justify-center items-center shadow-lg"
-          onPress={() => Alert.alert(
-            'Đăng xuất',
-            'Bạn có chắc chắn muốn đăng xuất?',
-            [
-              {text: 'Hủy', style: 'cancel'},
-              {text: 'Đăng xuất', onPress: logout, style: 'destructive'},
-            ]
-          )}
-        >
-          <Ionicons name="log-out-outline" size={24} color="white" />
-        </TouchableOpacity>
-      </LinearGradient>
+            <TouchableOpacity
+      className="absolute bottom-6 right-6 bg-red-500 rounded-full w-14 h-14 justify-center items-center shadow-lg"
+      onPress={() => setLogoutModalVisible(true)}
+    >
+      <Ionicons name="log-out-outline" size={28} color="white" />
+    </TouchableOpacity>
 
-      <Modal
-        transparent={true}
-        animationType="fade"
-        visible={isLoading}
-        onRequestClose={() => {}}
-      >
-        <View className="flex-1 justify-center items-center bg-opacity-25" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <View className="bg-gray-300 p-6 rounded-lg">
-            <ActivityIndicator size="large" color="#3B82F6" />
-            <Text className="text-gray-800 mt-4 font-medium text-center">Đang tải dữ liệu, vui lòng đợi...</Text>
-            <Text className="text-gray-600 mt-2 text-sm text-center">Đây có thể mất vài giây tùy thuộc vào kết nối mạng của bạn.</Text>
+    {/* Modal Đăng xuất */}
+    <Modal
+      transparent={true}
+      animationType="fade"
+      visible={logoutModalVisible}
+      onRequestClose={() => setLogoutModalVisible(false)}
+    >
+      <View className="flex-1 justify-center items-center bg-black bg-opacity-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <View className="bg-gray-900 rounded-lg p-6 w-11/12 max-w-sm">
+          <Text className="text-gray-300 text-2xl font-bold mb-4 text-center">Đăng xuất?</Text>
+          <Text className="text-gray-500 text-center mb-6 text-base">Bạn có chắc chắn muốn đăng xuất?</Text>
+          <View className="flex-row justify-around">
+            <TouchableOpacity
+              onPress={() => setLogoutModalVisible(false)}
+              className="bg-gray-600 py-2 px-4 rounded-md"
+            >
+              <Text className="text-white text-center font-semibold">Hủy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setLogoutModalVisible(false);
+                logout();
+              }}
+              className="bg-red-600 py-2 px-4 rounded-md"
+            >
+              <Text className="text-white text-center font-semibold">Đăng xuất</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-    </GestureHandlerRootView>
+      </View>
+    </Modal>
+
+    </LinearGradient>
+
+    {/* Loading Modal */}
+    <Modal
+      transparent={true}
+      animationType="fade"
+      visible={isLoading}
+      onRequestClose={() => {}}
+    >
+      <View className="flex-1 justify-center items-center bg-opacity-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <View className="bg-gray-900 p-6 rounded-2xl shadow-3xl">
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text className="text-gray-300 mt-4 font-medium text-center text-2xl">
+            Đang tải dữ liệu...
+          </Text>
+          <Text className="text-gray-500 mt-2 text-base text-center">
+            Vui lòng đợi trong giây lát để hệ thống cập nhật dữ liệu mới nhất, vui lòng không tắt ứng dụng hoặc mạng trong quá trình này.
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  </GestureHandlerRootView>
   );
 }

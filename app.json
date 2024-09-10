@@ -2,14 +2,14 @@
   "expo": {
     "name": "QTimeTable",
     "slug": "ThoiKhoaBieuApp",
-    "version": "1.1.beta",
+    "version": "1.2.beta",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1f1f1f"
     },
     "ios": {
       "supportsTablet": true
@@ -17,7 +17,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#b6ccd7"
       },
       "package": "com.hdquandev.thoikhoabieuapp",
       "permissions": ["NOTIFICATIONS"]

@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -9,6 +9,8 @@ import { AuthProvider, useAuth } from './AuthContext';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import * as Notifications from 'expo-notifications';
 import { checkForUpdate } from './components/CheckUpdate';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import ModalComponent from './components/ModalComponent';
 
 // Gọi hàm kiểm tra cập nhật
 
@@ -22,7 +24,7 @@ const toastConfig = {
   success: (props) => (
     <BaseToast
       {...props}
-      style={{ borderLeftColor: 'pink' }}
+      style={{ borderLeftColor: 'pink', backgroundColor: 'gray' }}
       contentContainerStyle={{ paddingHorizontal: 15 }}
       text1Style={{
         fontSize: 15,
@@ -53,7 +55,7 @@ const toastConfig = {
     They will be passed when calling the `show` method (see below)
   */
   tomatoToast: ({ text1, props }) => (
-    <View style={{ height: 60, width: '100%', backgroundColor: 'tomato' }}>
+    <View style={{ height: 60, width: '100%', backgroundColor: "rgba(0,0,0,0.6)", }}>
       <Text>{text1}</Text>
       <Text>{props.uuid}</Text>
     </View>
@@ -88,9 +90,14 @@ function Navigation() {
 }
 
 export default function App() {
-
+  const [modalProps, setModalProps] = useState(null);
+  const [notification, setNotification] = useState(null);
   useEffect(() => {
-    checkForUpdate();
+    const handleCheckForUpdate = async () => {
+      const updateInfo = await checkForUpdate();
+      setModalProps(updateInfo);
+    };
+    handleCheckForUpdate();
 
     const requestPermissions = async () => {
       let { status } = await Notifications.getPermissionsAsync();
@@ -152,10 +159,66 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const checkLastUpdateTime = async () => {
+      const lastUpdateTime = await AsyncStorage.getItem('lastUpdateTime');
+      if (lastUpdateTime) {
+        const [time, date] = lastUpdateTime.split(' ');
+        const [hours, minutes, seconds] = time.split(':');
+        const [day, month, year] = date.split('/');
+      
+        const lastUpdateDate = new Date(
+          parseInt(year), 
+          parseInt(month) - 1, // Tháng trong JavaScript bắt đầu từ 0
+          parseInt(day), 
+          parseInt(hours), 
+          parseInt(minutes), 
+          parseInt(seconds)
+        );
+      
+        // Lấy thời gian hiện tại
+        const now = new Date();
+      
+        // So sánh thời gian
+        const oneDayInMilliseconds = 24 * 60 * 60 * 1000;
+        const timeDifference = now - lastUpdateDate;
+      
+        if (timeDifference > oneDayInMilliseconds) {
+          setNotification(true);
+        }
+      }
+    };
+    checkLastUpdateTime();
+  } ,[]);
+
   return (
     <AuthProvider>
       <NavigationContainer>
         <Navigation />
+        {modalProps && (
+        <ModalComponent
+          visible={modalProps.showModal}
+          onClose={() => setModalProps(null)}
+          title={modalProps.title}
+          content={modalProps.content}
+          closeText={modalProps.closeText}
+          closeColor={modalProps.closeColor}
+          actionText={modalProps.actionText}
+          actionColor={modalProps.actionColor}
+          onActionPress={modalProps.onActionPress}
+        />
+      )}
+
+      {notification && (
+        <ModalComponent
+          visible={notification}
+          onClose={() => setNotification(false)}
+          title="Cảnh báo!!!"
+          content="Dữ liệu của bạn đã cũ hơn một ngày, vui lòng cập nhật dữ liệu mới nhất bằng cách sử dụng nút reset ở trên góc!"
+          closeText="Đồng ý"
+          closeColor="bg-red-600"
+        />
+      )}
       </NavigationContainer>
       <Toast config={toastConfig}/>
     </AuthProvider>
