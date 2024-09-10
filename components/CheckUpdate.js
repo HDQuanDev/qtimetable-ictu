@@ -47,7 +47,7 @@ export const checkForUpdate = async (type = 'one') => {
         }
     } else {
         return {
-            showModal: true,
+            showModal: false,
             title: 'Thông báo',
             content: 'Không có kết nối internet.',
             actionText: null,
