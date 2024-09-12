@@ -94,6 +94,26 @@ export default function App() {
   const [modalProps, setModalProps] = useState(null);
   const [notification, setNotification] = useState(null);
   const [showFirstTime, setShowFirstTime] = useState(null);
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  useEffect(() => {
+    const setupOneSignal = async () => {
+      try {
+        await initializeNotifications();
+        console.log("OneSignal setup completed");
+      } catch (error) {
+        console.error("Error setting up OneSignal:", error);
+      }
+    };
+
+    setupOneSignal();
+  }, []);
+
+  useNotificationListener((notification) => {
+    console.log('Received notification:', notification);
+    setNotificationCount(prev => prev + 1);
+  });
+  
   useEffect(() => {
     const handleCheckForUpdate = async () => {
       const updateInfo = await checkForUpdate();
@@ -144,15 +164,6 @@ export default function App() {
 
     checkPermissions();
   }, []);
-
-  useEffect(() => {
-    initializeNotifications();
-  }, []);
-
-  useNotificationListener((notification) => {
-    console.log('Received notification:', notification);
-    // Xử lý thông báo ở đây
-  });
 
   useEffect(() => {
     const checkLastUpdateTime = async () => {

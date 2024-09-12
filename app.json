@@ -2,7 +2,7 @@
   "expo": {
     "name": "QTimeTable",
     "slug": "ThoiKhoaBieuApp",
-    "version": "1.3.beta",
+    "version": "1.4.beta",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -12,7 +12,8 @@
       "backgroundColor": "#1f1f1f"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hdquandev.thoikhoabieuapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +33,18 @@
     "extra": {
       "eas": {
         "projectId": "f2359441-8b5b-4f85-a021-7d4b6ae444d0"
+      },
+      "onesignal": {
+        "oneSignalAppId": "03ec2bd4-7caa-4319-909b-19962715abfe"
       }
-    }
+    },
+    "plugins": [
+      [
+        "onesignal-expo-plugin",
+        {
+          "mode": "development"
+        }
+      ]
+    ]
   }
 }
