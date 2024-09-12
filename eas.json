@@ -12,7 +12,7 @@
       "autoIncrement": true,
       "android": {
         "buildType": "apk",
-        "image": "lastest"
+        "image": "latest"
       }
     },
     "production": {
