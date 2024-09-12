@@ -3,7 +3,7 @@ import { api_checkUpdate } from '../services/api';
 import { Linking } from 'react-native';
 
 export const checkForUpdate = async (type = 'one') => {
-    const appVersion = '1.2.beta';
+    const appVersion = '1.3.beta';
   
     // Kiểm tra trạng thái kết nối mạng
     const state = await NetInfo.fetch();

@@ -11,6 +11,7 @@ import * as Notifications from 'expo-notifications';
 import { checkForUpdate } from './components/CheckUpdate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ModalComponent from './components/ModalComponent';
+import { initializeNotifications, useNotificationListener  } from './components/LocalNotification';
 
 // Gọi hàm kiểm tra cập nhật
 
@@ -92,6 +93,7 @@ function Navigation() {
 export default function App() {
   const [modalProps, setModalProps] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [showFirstTime, setShowFirstTime] = useState(null);
   useEffect(() => {
     const handleCheckForUpdate = async () => {
       const updateInfo = await checkForUpdate();
@@ -142,26 +144,19 @@ export default function App() {
 
     checkPermissions();
   }, []);
-  useEffect(() => {
-    // Thiết lập trình xử lý thông báo
-    const notificationHandler = async () => {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-        }),
-      });
-    };
-    notificationHandler();
-    return () => {
 
-    };
+  useEffect(() => {
+    initializeNotifications();
   }, []);
+
+  useNotificationListener((notification) => {
+    console.log('Received notification:', notification);
+    // Xử lý thông báo ở đây
+  });
 
   useEffect(() => {
     const checkLastUpdateTime = async () => {
-      const lastUpdateTime = await AsyncStorage.getItem('lastUpdateTime');
+      const lastUpdateTime = await AsyncStorage.getItem('lastUpdate');
       if (lastUpdateTime) {
         const [time, date] = lastUpdateTime.split(' ');
         const [hours, minutes, seconds] = time.split(':');
@@ -191,6 +186,29 @@ export default function App() {
     checkLastUpdateTime();
   } ,[]);
 
+  // Hiển thị modal chào mừng lần đầu khi cài app
+  useEffect(() => {
+    const checkFirstTime = async () => {
+      const firstTime = await AsyncStorage.getItem('firstTime_v1.3.beta');
+      if (!firstTime) {
+        setShowFirstTime({
+          showModal: true,
+          title: 'Ứng dụng đã được cập nhật',
+          content: 'Để ứng dụng sử dụng bình thường sau khi cập nhật, bạn cần cập nhật dữ liệu mới nhất từ server bằng cách nhấn vào nút reset góc trên bên phải màn hình để cập nhật dữ liệu mới nhất.',
+          actionText: 'Đã hiểu',
+          actionColor: 'bg-blue-600',
+          onActionPress: async () => {
+            await AsyncStorage.setItem('firstTime_v1.3.beta', 'false');
+            setShowFirstTime(null);
+          },
+          closeText: 'Hủy',
+          closeColor: 'bg-gray-700'
+        });
+      }
+    };
+    checkFirstTime();
+  }
+  ,[]);
   return (
     <AuthProvider>
       <NavigationContainer>
@@ -208,7 +226,19 @@ export default function App() {
           onActionPress={modalProps.onActionPress}
         />
       )}
-
+      {showFirstTime && (
+        <ModalComponent
+          visible={showFirstTime.showModal}
+          onClose={() => setShowFirstTime(null)}
+          title={showFirstTime.title}
+          content={showFirstTime.content}
+          closeText={showFirstTime.closeText}
+          closeColor={showFirstTime.closeColor}
+          actionText={showFirstTime.actionText}
+          actionColor={showFirstTime.actionColor}
+          onActionPress={showFirstTime.onActionPress}
+        />
+      )}
       {notification && (
         <ModalComponent
           visible={notification}

@@ -656,7 +656,13 @@ export default function ThoiKhoaBieuScreen() {
           onRequestClose={() => setModalVisible(false)}
         >
           <View className="flex-1 justify-center items-center bg-opacity-25 block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-            <View className="bg-gray-900 rounded-lg p-6 w-11/12 max-h-5/6">
+          <LinearGradient
+          colors={['#2c2c2c', '#1f1f1f']} // Các màu tối cho gradient
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          className="p-4 rounded-3xl shadow-md"
+        >
+            <View className="rounded-lg p-6 w-11/12 max-h-5/6">
               <ScrollView>
                 {selectedClass && (
                   <>
@@ -676,6 +682,7 @@ export default function ThoiKhoaBieuScreen() {
                 <Text className="text-white text-center font-bold">Đóng</Text>
               </TouchableOpacity>
             </View>
+          </LinearGradient>
           </View>
         </Modal>
 
@@ -784,7 +791,7 @@ export default function ThoiKhoaBieuScreen() {
                 visible={isChangelogModalVisible}
                 onClose={() => setChangelogModalVisible(false)}
                 title="Nhật ký thay đổi"
-                content={`** Phiên bản 1.2.beta **\n- Chuyển đổi qua giao diện tối\n- Thêm chức năng xem lịch thi.\n- Thêm chức năng xem thông tin ứng dụng.\n- Thêm chức năng kiểm tra cập nhật.\n- Cải thiện hiệu suất và giao diện.\n- Sửa lỗi và cải thiện tính ổn định.`}
+                content={`** Phiên bản 1.3.beta **\n- Cập nhật & sửa lỗi thông báo của ứng dụng giúp thông báo chính xác hơn \n- Sửa lỗi ứng dụng không chạy trên nền khiến thiết bị không thể nhận thông báo \n- Cải thiện hiệu suất và tối ưu hóa ứng dụng`}
                 closeText={'Đóng'}
                 closeColor={'bg-pink-700'}
               />
@@ -813,7 +820,7 @@ export default function ThoiKhoaBieuScreen() {
                 <View className="flex items-center">
                   <Text className="text-sm text-gray-300 mb-1 text-center">
                     Package ID: <Text className="font-semibold text-gray-100">com.hdquandev.thoikhoabieuapp</Text> | 
-                    Version: <Text className="font-semibold text-gray-100">1.2.beta</Text> | Powered by <Text className="font-semibold text-gray-100">Hứa Đức Quân</Text>
+                    Version: <Text className="font-semibold text-gray-100">1.3.beta</Text> | Powered by <Text className="font-semibold text-gray-100">Hứa Đức Quân</Text> | Build Day <Text className="font-semibold text-gray-100">12/09/2024</Text>
                   </Text>
                 </View>
               </LinearGradient>
