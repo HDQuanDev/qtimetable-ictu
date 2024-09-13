@@ -1,163 +1,204 @@
-import React, { useEffect } from 'react';
-import { LogLevel, OneSignal } from 'react-native-onesignal';
+import { useEffect } from 'react';
+import { Platform, Alert, Linking, AppState } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as BackgroundFetch from 'expo-background-fetch';
+import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from "expo-constants";
+import { sendTokenToServer } from '../services/token';
+import Constants from 'expo-constants';
 
-const NOTIFICATION_IDS_KEY = 'SCHEDULED_NOTIFICATION_IDS';
+const BACKGROUND_FETCH_TASK = 'background-fetch-task';
+const NOTIFICATION_CHANNEL_ID = 'notification-tkb';
+const BACKGROUND_CHECK_INTERVAL = 15 * 60; // 15 phút
 
-// Hàm khởi tạo OneSignal
+// Đăng ký task background fetch
+TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
+  await checkAndReregisterBackgroundTask();
+  return BackgroundFetch.BackgroundFetchResult.NewData;
+});
+
+// Hàm đăng ký task background fetch
+const registerBackgroundFetchAsync = async () => {
+  try {
+    await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
+      minimumInterval: BACKGROUND_CHECK_INTERVAL,
+      stopOnTerminate: false,
+      startOnBoot: true,
+    });
+  } catch (err) {
+    Alert.alert('Lỗi khi đăng ký task background fetch:', err.message);
+  }
+};
+
+// Hàm kiểm tra và đăng ký lại task background fetch
+const checkAndReregisterBackgroundTask = async () => {
+  const status = await BackgroundFetch.getStatusAsync();
+  const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK);
+  if (status !== BackgroundFetch.BackgroundFetchStatus.Available || !isRegistered) {
+    await registerBackgroundFetchAsync();
+  }
+};
+
+// Hàm kiểm tra quyền thông báo và yêu cầu quyền nếu chưa được cấp
+const requestPermissions = async () => {
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  if (finalStatus !== 'granted') {
+    Alert.alert(
+      'Quyền thông báo chưa được cấp!',
+      'Ứng dụng cần quyền thông báo để gửi cập nhật quan trọng. Vui lòng bật quyền thông báo trong cài đặt của bạn.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Mở cài đặt', onPress: () => Linking.openSettings() },
+      ]
+    );
+    return false;
+  }
+  return true;
+};
+
+// Hàm tạo channel thông báo
+const createNotificationChannel = async () => {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNEL_ID, {
+      name: 'Thông Báo Lịch Học',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+};
+
+// Hàm khởi tạo thông báo
 export const initializeNotifications = async () => {
-  OneSignal.Debug.setLogLevel(LogLevel.Verbose);
-  OneSignal.initialize("03ec2bd4-7caa-4319-909b-19962715abfe");
-
-  // Yêu cầu quyền thông báo
-  OneSignal.Notifications.requestPermission(true);
-
-  // Đăng ký thiết bị với OneSignal (không cần thiết trong v5, nhưng giữ lại để đảm bảo tương thích)
-  OneSignal.User.pushSubscription.optIn();
-
-  OneSignal.Notifications.addEventListener('foregroundWillDisplay', event => {
-    console.log("OneSignal: notification will show in foreground:", event);
-    event.preventDefault();
-    event.getNotification().display();
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return;
+  await createNotificationChannel();
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
   });
-
-  OneSignal.Notifications.addEventListener('opened', openedEvent => {
-    console.log("OneSignal: notification opened:", openedEvent);
-  });
-};
-
-// Hàm để đăng nhập người dùng (nếu có hệ thống đăng nhập)
-export const loginUser = (externalId) => {
-  OneSignal.login(externalId);
-};
-
-// Hàm để thêm email
-export const addUserEmail = (email) => {
-  OneSignal.User.addEmail(email);
-};
-
-// Hàm để thêm số điện thoại
-export const addUserPhone = (phoneNumber) => {
-  OneSignal.User.addSms(phoneNumber);
-};
-
-// Hàm để thêm tag
-export const addUserTag = (key, value) => {
-  OneSignal.User.addTag(key, value);
-};
-
-// Hàm lưu ID thông báo
-const saveNotificationId = async (id) => {
-  try {
-    const existingIds = await AsyncStorage.getItem(NOTIFICATION_IDS_KEY);
-    const idsArray = existingIds ? JSON.parse(existingIds) : [];
-    idsArray.push(id);
-    await AsyncStorage.setItem(NOTIFICATION_IDS_KEY, JSON.stringify(idsArray));
-  } catch (error) {
-    console.error('Error saving notification ID:', error);
-  }
-};
-
-// Hàm lên lịch thông báo với OneSignal
-export const scheduleLocalNotification = async (title, body, triggerTime) => {
-  const currentTime = Math.floor(Date.now() / 1000);
-  const sendAfter = currentTime + triggerTime;
-
-  try {
-    const notification = {
-      headings: { en: title },
-      contents: { en: body },
-      send_after: sendAfter,
-    };
-
-    const response = await OneSignal.postNotification(notification);
-    console.log('OneSignal notification scheduled:', response);
-    if (response.id) {
-      await saveNotificationId(response.id);
+  await registerBackgroundFetchAsync();
+  startPeriodicBackgroundCheck();
+    try {
+      const storedToken = await AsyncStorage.getItem('expoPushToken');
+      const tokenObject = await Notifications.getExpoPushTokenAsync({
+        projectId: Constants.expoConfig.extra.eas.projectId,
+      });
+      const token = tokenObject.data;
+      if (token !== storedToken) {
+        await sendTokenToServer(token);
+      }
+    } catch (error) {
+      Alert.alert('Lỗi khi lấy token:', error.message);
     }
-    return response.id;
+};
+
+// Hàm lên lịch thông báo cho sự kiện trong nền
+const startPeriodicBackgroundCheck = () => {
+  setInterval(checkAndReregisterBackgroundTask, BACKGROUND_CHECK_INTERVAL);
+  AppState.addEventListener('change', async (nextAppState) => {
+    if (nextAppState === 'active') {
+      await checkAndReregisterBackgroundTask();
+    }
+  });
+};
+
+// Hàm lên lịch thông báo
+export const scheduleLocalNotification = async (title, body, triggerTime) => {
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return;
+  try {
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: { someData: 'some data' },
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      },
+      trigger: triggerTime ? { seconds: triggerTime } : null,
+    });
+    return notificationId;
   } catch (error) {
-    console.error('Error scheduling OneSignal notification:', error);
+    Alert.alert('Lỗi khi lên lịch thông báo:', error.message);
   }
 };
 
-// Hàm hủy tất cả thông báo đã lên lịch
+// Hàm gửi thông báo ngay lập tức
+export const sendImmediateNotification = (title, body) => scheduleLocalNotification(title, body, null);
+
+// Hàm hủy thông báo
 export const cancelAllClassNotifications = async () => {
   try {
-    const notificationIds = await AsyncStorage.getItem(NOTIFICATION_IDS_KEY);
-    if (notificationIds) {
-      const idsArray = JSON.parse(notificationIds);
-      for (const id of idsArray) {
-        await OneSignal.cancelNotification(id);
-      }
-      await AsyncStorage.removeItem(NOTIFICATION_IDS_KEY);
-      console.log('Đã hủy tất cả các thông báo đã lên lịch');
-    }
+    await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (error) {
-    console.error('Lỗi khi hủy các thông báo:', error);
+    Alert.alert('Lỗi khi hủy thông báo:', error.message);
     throw error;
   }
 };
 
-// Hàm để lên lịch thông báo cho một môn học
+// Hàm lên lịch thông báo cho sự kiện
+const scheduleNotificationForEvent = async (eventName, eventDate, minutesBefore, eventRoom, eventType = 'class', eventSBD = '') => {
+  const notificationTime = new Date(eventDate.getTime() - minutesBefore * 60000);
+  const now = new Date();
+  if (notificationTime > now) {
+    const secondsUntilNotification = Math.floor((notificationTime.getTime() - now.getTime()) / 1000);
+    let title, body;
+    if (minutesBefore === 0) {
+      title = `${eventName} đang bắt đầu!`;
+      body = eventType === 'class' 
+        ? `Lớp học ${eventName} đang bắt đầu ngay bây giờ, hãy đến lớp ${eventRoom} ngay thôi!`
+        : `Môn thi ${eventName} đang bắt đầu ngay bây giờ, mời bạn SBD ${eventSBD} đến phòng thi ${eventRoom} ngay thôi!`;
+    } else {
+      title = `Sắp đến giờ ${eventType === 'class' ? 'học' : 'thi'} ${eventName}`;
+      body = eventType === 'class'
+        ? `Lớp học ${eventName} sẽ bắt đầu trong ${minutesBefore} phút nữa, hãy đến lớp ${eventRoom} ngay thôi!`
+        : `Môn thi ${eventName} sẽ bắt đầu trong ${minutesBefore} phút nữa, mời bạn SBD ${eventSBD} đến phòng thi ${eventRoom} ngay thôi!`;
+    }
+    await scheduleLocalNotification(title, body, secondsUntilNotification);
+  }
+};
+
+// Hàm lên lịch thông báo cho lớp học
 export const scheduleClassNotifications = async (className, startTime, classRoom) => {
   const classDate = new Date(startTime);
-  await scheduleNotificationForClass(className, classDate, 60, classRoom);
-  await scheduleNotificationForClass(className, classDate, 30, classRoom);
-  await scheduleNotificationForClass(className, classDate, 15, classRoom);
-  await scheduleNotificationForClass(className, classDate, 0, classRoom);
+  await Promise.all([60, 30, 15, 0].map(minutes => 
+    scheduleNotificationForEvent(className, classDate, minutes, classRoom)
+  ));
 };
 
-// Hàm lên lịch thông báo cho một môn học
-const scheduleNotificationForClass = async (className, classDate, minutesBefore, classRoom) => {
-  const notificationTime = new Date(classDate.getTime() - minutesBefore * 60000);
-  const now = new Date();
-  if (notificationTime > now) {
-    const secondsUntilNotification = Math.floor((notificationTime.getTime() - now.getTime()) / 1000);
-    let title, body;
-    if (minutesBefore === 0) {
-      title = `${className} đang bắt đầu!`;
-      body = `Lớp học ${className} đang bắt đầu ngay bây giờ, hãy đến lớp ${classRoom} ngay thôi!`;
-    } else {
-      title = `Sắp đến giờ học ${className}`;
-      body = `Lớp học ${className} sẽ bắt đầu trong ${minutesBefore} phút nữa, hãy đến lớp ${classRoom} ngay thôi!`;
-    }
-    await scheduleLocalNotification(title, body, secondsUntilNotification);
-  }
-};
-
-// Hàm để lên lịch thông báo cho một môn thi
+// Hàm lên lịch thông báo cho kỳ thi
 export const scheduleExamNotifications = async (examName, examStart, examRoom, examSBD) => {
   const examDate = new Date(examStart);
-  await scheduleExamNotificationForClass(examName, examDate, 60, examRoom, examSBD);
-  await scheduleExamNotificationForClass(examName, examDate, 30, examRoom, examSBD);
-  await scheduleExamNotificationForClass(examName, examDate, 15, examRoom, examSBD);
-  await scheduleExamNotificationForClass(examName, examDate, 0, examRoom, examSBD);
+  await Promise.all([60, 30, 15, 0].map(minutes => 
+    scheduleNotificationForEvent(examName, examDate, minutes, examRoom, 'exam', examSBD)
+  ));
 };
 
-// Hàm lên lịch thông báo cho một môn thi
-const scheduleExamNotificationForClass = async (examName, examDate, minutesBefore, examRoom, examSBD) => {
-  const notificationTime = new Date(examDate.getTime() - minutesBefore * 60000);
-  const now = new Date();
-  if (notificationTime > now) {
-    const secondsUntilNotification = Math.floor((notificationTime.getTime() - now.getTime()) / 1000);
-    let title, body;
-    if (minutesBefore === 0) {
-      title = `Lịch thi môn ${examName} đang bắt đầu!`;
-      body = `Môn thi ${examName} đang bắt đầu ngay bây giờ, mời bạn SBD ${examSBD} đến phòng thi ${examRoom} ngay thôi!`;
-    } else {
-      title = `Sắp đến giờ thi môn ${examName}`;
-      body = `Môn thi ${examName} sẽ bắt đầu trong ${minutesBefore} phút nữa, mời bạn SBD ${examSBD} đến phòng thi ${examRoom} ngay thôi!`;
-    }
-    await scheduleLocalNotification(title, body, secondsUntilNotification);
-  }
-};
-
-// Hook để lắng nghe sự kiện thông báo
+// Hàm lắng nghe sự kiện thông báo
 export const useNotificationListener = (onNotification) => {
   useEffect(() => {
-    const subscription = OneSignal.Notifications.addEventListener('foregroundWillDisplay', onNotification);
+    const subscription = Notifications.addNotificationReceivedListener(onNotification);
     return () => subscription.remove();
   }, [onNotification]);
+
+  useEffect(() => {
+    checkAndReregisterBackgroundTask();
+  }, []);
+};
+
+// Hàm kiểm tra trạng thái background fetch
+export const checkBackgroundFetchStatus = async () => {
+  const status = await BackgroundFetch.getStatusAsync();
+  const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK);
+  console.log('Background fetch status:', BackgroundFetch.BackgroundFetchStatus[status]);
+  console.log('Background fetch task registered:', isRegistered);
 };

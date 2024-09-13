@@ -2,10 +2,9 @@ import NetInfo from '@react-native-community/netinfo';
 import { api_checkUpdate } from '../services/api';
 import { Linking } from 'react-native';
 
+// Hàm kiểm tra cập nhật ứng dụng
 export const checkForUpdate = async (type = 'one') => {
-    const appVersion = '1.3.beta';
-  
-    // Kiểm tra trạng thái kết nối mạng
+    const appVersion = '1.5.stable';
     const state = await NetInfo.fetch();
     if (state.isConnected) {
         try {
@@ -58,4 +57,3 @@ export const checkForUpdate = async (type = 'one') => {
         };
     }
   };
-  

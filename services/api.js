@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {scheduleLocalNotification,cancelAllClassNotifications, scheduleClassNotifications, scheduleExamNotifications} from '../components/LocalNotification';
+import {scheduleLocalNotification, cancelAllClassNotifications, scheduleClassNotifications, scheduleExamNotifications} from '../components/LocalNotification';
+import { Alert } from 'react-native';
 
 // Định nghĩa các khung giờ học trong ngày
 const periods = {
@@ -53,7 +54,9 @@ const formatDateTime = (date) => {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00+07:00`;
 };
 
-const url_api = 'https://search.quanhd.net/get_tkb'; // API endpoint
+// Định nghĩa các đường dẫn API
+const url_api = 'https://search.quanhd.net/get_tkb'; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
+const url_checkUpdate = 'https://api.quanhd.net/tkb_app.json'; // API endpoint check update
 
 // Hàm gọi API để lấy dữ liệu thời khóa biểu và lịch thi
 export const api_ictu = async (username = '', password = '', type = 'login') => {
@@ -66,10 +69,7 @@ export const api_ictu = async (username = '', password = '', type = 'login') => 
             await cancelAllClassNotifications();
             const data = response.data.thoikhoabieu;
             const currentDate = new Date();
-
-            // Tạo một đối tượng để lưu trữ các lớp học theo ngày
             const classesByDay = {};
-
             for (const weekData of data) {
                 for (const item of weekData.data) {
                     const dateTimeStart = getDateTimeStart(
@@ -94,7 +94,6 @@ export const api_ictu = async (username = '', password = '', type = 'login') => 
                     }
                 }
             }
-            // Lên lịch thông báo tổng hợp cho mỗi ngày
             for (const [dateKey, classes] of Object.entries(classesByDay)) {
                 try {
                     const notificationDate = new Date(dateKey);
@@ -110,10 +109,9 @@ export const api_ictu = async (username = '', password = '', type = 'login') => 
                         );
                     }
                 } catch (error) {
-                    console.error('Error scheduling notification:', error);
+                    Alert.alert('Lỗi', 'Không thể lên lịch thông báo: ' + error.message);
                 }
             }
-            // Xử lý lịch thi
             if (response.data.lichthi) {
                 const examData = response.data.lichthi[0];
                 for (const item of examData) {
@@ -128,7 +126,6 @@ export const api_ictu = async (username = '', password = '', type = 'login') => 
                         item.phong_thi,
                         item.so_bao_danh
                     );
-                    // Thêm thông báo lịch thi vào 8h tối hôm trước
                     const notificationDate = new Date(date);
                     notificationDate.setDate(notificationDate.getDate() - 1);
                     notificationDate.setHours(20, 0, 0, 0);
@@ -158,7 +155,8 @@ export const api_ictu = async (username = '', password = '', type = 'login') => 
 // Hàm gọi API để kiểm tra cập nhật ứng dụng
 export const api_checkUpdate = async (app_version, type='one') => {
     try {
-        const response = await axios.get('https://api.quanhd.net/tkb_app.json');
+        const date = new Date();
+        const response = await axios.get(url_checkUpdate + '?date=' + date.getTime());
         if (response.status === 200) {
             const data = response.data;
             if (data.app_version != app_version) {
@@ -171,10 +169,8 @@ export const api_checkUpdate = async (app_version, type='one') => {
         }
         return false;
     } catch (error) {
-        console.log(error);
+        Alert.alert('Lỗi', 'Không thể kiểm tra cập nhật ứng dụng: ' + error.message);
         const errorMessage = error.response?.error || 'Đã xảy ra lỗi khi kết nối đến máy chủ API';
         throw new Error(errorMessage);
     }
 };
-
-

@@ -37,3 +37,6 @@ yarn-error.*
 #python
 *.py
 server.py
+
+#google service account
+google-services.json

@@ -13,15 +13,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ModalComponent from './components/ModalComponent';
 import { initializeNotifications, useNotificationListener  } from './components/LocalNotification';
 
-// Gọi hàm kiểm tra cập nhật
 
-const Stack = createStackNavigator();
+const Stack = createStackNavigator(); // Khởi tạo Stack Navigator
 
+// Định nghĩa cấu hình cho Toast
 const toastConfig = {
-  /*
-    Overwrite 'success' type,
-    by modifying the existing `BaseToast` component
-  */
   success: (props) => (
     <BaseToast
       {...props}
@@ -33,10 +29,6 @@ const toastConfig = {
       }}
     />
   ),
-  /*
-    Overwrite 'error' type,
-    by modifying the existing `ErrorToast` component
-  */
   error: (props) => (
     <ErrorToast
       {...props}
@@ -48,13 +40,6 @@ const toastConfig = {
       }}
     />
   ),
-  /*
-    Or create a completely new type - `tomatoToast`,
-    building the layout from scratch.
-
-    I can consume any custom `props` I want.
-    They will be passed when calling the `show` method (see below)
-  */
   tomatoToast: ({ text1, props }) => (
     <View style={{ height: 60, width: '100%', backgroundColor: "rgba(0,0,0,0.6)", }}>
       <Text>{text1}</Text>
@@ -63,14 +48,12 @@ const toastConfig = {
   )
 };
 
+// Hàm hiển thị thanh điều hướng
 function Navigation() {
   const { isLoggedIn, isLoading } = useAuth();
-
   if (isLoading) {
-    // Có thể hiển thị màn hình splash hoặc loading ở đây
     return null;
   }
-
   return (
     <Stack.Navigator>
       {isLoggedIn ? (
@@ -90,81 +73,39 @@ function Navigation() {
   );
 }
 
+// Hàm chính của ứng dụng
 export default function App() {
   const [modalProps, setModalProps] = useState(null);
   const [notification, setNotification] = useState(null);
   const [showFirstTime, setShowFirstTime] = useState(null);
-  const [notificationCount, setNotificationCount] = useState(0);
 
-  useEffect(() => {
-    const setupOneSignal = async () => {
-      try {
-        await initializeNotifications();
-        console.log("OneSignal setup completed");
-      } catch (error) {
-        console.error("Error setting up OneSignal:", error);
-      }
-    };
-
-    setupOneSignal();
-  }, []);
-
-  useNotificationListener((notification) => {
-    console.log('Received notification:', notification);
-    setNotificationCount(prev => prev + 1);
-  });
-  
+  // Kiểm tra cập nhật ứng dụng
   useEffect(() => {
     const handleCheckForUpdate = async () => {
       const updateInfo = await checkForUpdate();
       setModalProps(updateInfo);
     };
     handleCheckForUpdate();
-
-    const requestPermissions = async () => {
-      let { status } = await Notifications.getPermissionsAsync();
-    
-      if (status !== 'granted') {
-        const { status: newStatus } = await Notifications.requestPermissionsAsync();
-        status = newStatus;
-      }
-    
-      if (status !== 'granted') {
-        Alert.alert(
-          'Quyền thông báo chưa được cấp!',
-          'Ứng dụng cần quyền thông báo để gửi cập nhật quan trọng. Vui lòng bật quyền thông báo trong cài đặt của bạn.',
-          [
-            { text: 'Hủy', style: 'cancel' },
-            { text: 'Mở cài đặt', onPress: () => {
-              if (Platform.OS === 'ios') {
-                Linking.openSettings();
-              } else if (Platform.OS === 'android') {
-                Linking.openSettings();
-              }
-            } },
-          ]
-        );
-        return false;
-      }
-    
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('test-channel', {
-          name: 'Test Channel',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
-      }
-      return true;
-    };
-
-    const checkPermissions = async () => {
-      await requestPermissions();
-    };
-
-    checkPermissions();
   }, []);
 
+  // Khởi tạo thông báo
+  useEffect(() => {
+    const setupNotification = async () => {
+      try {
+        await initializeNotifications();
+      } catch (error) {
+        Alert.alert('Lỗi', 'Không thể khởi tạo thông báo: ' + error.message);
+      }
+    };
+    setupNotification();
+  }, []);
+
+  // Lắng nghe thông báo
+  useNotificationListener((notification) => {
+    console.log('Received notification:', notification);
+  });
+
+  // Kiểm tra thời gian cập nhật cuối cùng
   useEffect(() => {
     const checkLastUpdateTime = async () => {
       const lastUpdateTime = await AsyncStorage.getItem('lastUpdate');
@@ -172,7 +113,6 @@ export default function App() {
         const [time, date] = lastUpdateTime.split(' ');
         const [hours, minutes, seconds] = time.split(':');
         const [day, month, year] = date.split('/');
-      
         const lastUpdateDate = new Date(
           parseInt(year), 
           parseInt(month) - 1, // Tháng trong JavaScript bắt đầu từ 0
@@ -181,14 +121,9 @@ export default function App() {
           parseInt(minutes), 
           parseInt(seconds)
         );
-      
-        // Lấy thời gian hiện tại
         const now = new Date();
-      
-        // So sánh thời gian
         const oneDayInMilliseconds = 24 * 60 * 60 * 1000;
         const timeDifference = now - lastUpdateDate;
-      
         if (timeDifference > oneDayInMilliseconds) {
           setNotification(true);
         }

@@ -2,7 +2,7 @@
   "expo": {
     "name": "QTimeTable",
     "slug": "ThoiKhoaBieuApp",
-    "version": "1.4.beta",
+    "version": "1.5.stable",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -25,7 +25,8 @@
         "NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
         "WAKE_LOCK"
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -39,12 +40,6 @@
       }
     },
     "plugins": [
-      [
-        "onesignal-expo-plugin",
-        {
-          "mode": "development"
-        }
-      ]
     ]
   }
 }

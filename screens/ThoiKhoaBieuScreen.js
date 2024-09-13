@@ -11,7 +11,7 @@ import { api_ictu } from '../services/api';
 import { checkForUpdate } from '../components/CheckUpdate';
 import ModalComponent from '../components/ModalComponent';
 
-// Vietnamese locale configuration for the calendar
+// Cấu hình ngôn ngữ cho lịch
 LocaleConfig.locales['vi'] = {
   monthNames: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'],
   monthNamesShort: ['Th1', 'Th2', 'Th3', 'Th4', 'Th5', 'Th6', 'Th7', 'Th8', 'Th9', 'Th10', 'Th11', 'Th12'],
@@ -21,6 +21,7 @@ LocaleConfig.locales['vi'] = {
 };
 LocaleConfig.defaultLocale = 'vi';
 
+// Định nghĩa các khung giờ học trong ngày
 const periods = {
   1: { start: '6:45', end: '7:35' },
   2: { start: '7:40', end: '8:30' },
@@ -41,6 +42,8 @@ const periods = {
 };
 
 export default function ThoiKhoaBieuScreen() {
+
+  // Cấu hình các biến state và hook cần thiết
   const { logout } = useAuth();
   const [scheduleData, setScheduleData] = useState([]);
   const [examData, setExamData] = useState([]);
@@ -60,12 +63,9 @@ export default function ThoiKhoaBieuScreen() {
   const [isChangelogModalVisible, setChangelogModalVisible] = useState(false);
   const [modalProps, setModalProps] = useState(null);
   const [notification, setNotification] = useState(null);
-
   const openMenu = () => {
     setMenuVisible(true);
   };
-
-  // Hàm đóng menu
   const closeMenu = () => {
     setMenuVisible(false);
   };
@@ -79,6 +79,9 @@ export default function ThoiKhoaBieuScreen() {
       case 'contact':
         Linking.openURL('https://facebook.com/quancp72h');
         break;
+      case 'aichat':
+        Linking.openURL('https://ai.quanhd.net/');
+        break;
       case 'update':
         const updateInfo = await checkForUpdate('all');
         setModalProps(updateInfo);
@@ -88,6 +91,7 @@ export default function ThoiKhoaBieuScreen() {
     }
   };
 
+  // Hàm xử lý dữ liệu khi mở ứng dụng
   useEffect(() => {
     const fetchData = async () => {
       await fetchScheduleData();
@@ -103,6 +107,7 @@ export default function ThoiKhoaBieuScreen() {
     fetchData();
   }, []);
 
+  // Hàm xử lý lấy dữ liệu thời khóa biểu từ bộ nhớ đệm
   const fetchScheduleData = async () => {
     try {
       const data = await AsyncStorage.getItem('userData_ThoiKhoaBieu');
@@ -114,6 +119,7 @@ export default function ThoiKhoaBieuScreen() {
     }
   };
 
+  // Hàm xử lý lấy dữ liệu lịch thi từ bộ nhớ đệm
   const fetchExamData = async () => {
     try {
       const data = await AsyncStorage.getItem('userData_LichThi');
@@ -125,6 +131,7 @@ export default function ThoiKhoaBieuScreen() {
     }
   };
 
+  // Hàm xử lý lấy thông tin người dùng từ bộ nhớ đệm
   const fetchUserInfo = async () => {
     try {
       const userInfo = await AsyncStorage.getItem('userInfo');
@@ -136,6 +143,7 @@ export default function ThoiKhoaBieuScreen() {
     }
   };
 
+  // Hàm xử lý lấy thời gian cập nhật cuối cùng từ bộ nhớ đệm
   const fetchTimeUpdate = async () => {
     try {
       const lastUpdate = await AsyncStorage.getItem('lastUpdate');
@@ -147,11 +155,13 @@ export default function ThoiKhoaBieuScreen() {
     }
   };
 
+  // Hàm chuyển đổi định dạng ngày
   const convertDateFormat = useCallback((dateString) => {
     const [day, month, year] = dateString.split('/');
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   }, []);
 
+  // Hàm lấy ngày bắt đầu của tuần
   const getWeekStartDate = useCallback((dateString) => {
     const date = new Date(dateString);
     date.setHours(date.getHours() + 7);
@@ -160,33 +170,31 @@ export default function ThoiKhoaBieuScreen() {
     return new Date(date.setDate(diff)).toISOString().split('T')[0];
   }, []);
 
+  // Hàm lấy thời khóa biểu cho ngày đã chọn
   const getScheduleForDate = useCallback(() => {
     if (!selectedDate) return [];
-
     const selectedDateObj = new Date(selectedDate);
     const selectedWeek = scheduleData.find((week) => {
       const startDateObj = new Date(convertDateFormat(week.start_date));
       const endDateObj = new Date(convertDateFormat(week.end_date));
       return selectedDateObj >= startDateObj && selectedDateObj <= endDateObj;
     });
-
     if (!selectedWeek) return [];
-
     const dayOfWeekMapping = ['CN', '2', '3', '4', '5', '6', '7'];
     const selectedDayString = dayOfWeekMapping[selectedDateObj.getDay()];
-
     return selectedWeek.data.filter((item) => item['thu'] === selectedDayString);
   }, [selectedDate, scheduleData, convertDateFormat]);
 
+  // Hàm lấy số lớp học cho ngày đã chọn
   const getExamsForDate = useCallback(() => {
     if (!selectedDate) return [];
-
     return examData.filter((exam) => {
       const examDate = convertDateFormat(exam.ngay_thi);
       return examDate === selectedDate;
     });
   }, [selectedDate, examData, convertDateFormat]);
 
+  // Hàm lấy số lớp học cho ngày đã chọn
   const getNumberOfClassesForDay = useCallback((date) => {
     const dateObj = new Date(date);
     const week = scheduleData.find((w) => {
@@ -194,23 +202,19 @@ export default function ThoiKhoaBieuScreen() {
       const endDateObj = new Date(convertDateFormat(w.end_date));
       return dateObj >= startDateObj && dateObj <= endDateObj;
     });
-
     if (!week) return 0;
-
     const dayOfWeekMapping = ['CN', '2', '3', '4', '5', '6', '7'];
     const dayString = dayOfWeekMapping[dateObj.getDay()];
-
     return week.data.filter((item) => item['thu'] === dayString).length;
   }, [scheduleData, convertDateFormat]);
 
+  // Hàm lấy số lớp học cho ngày đã chọn
   const getNumberOfExamsForDay = useCallback((date) => {
     return examData.filter((exam) => convertDateFormat(exam.ngay_thi) === date).length;
   }, [examData, convertDateFormat]);
-
   const getWeekDays = useCallback((startDate) => {
     const days = [];
     const startDateObj = new Date(startDate);
-
     for (let i = 0; i < 7; i++) {
       const day = new Date(startDateObj);
       day.setDate(startDateObj.getDate() + i);
@@ -223,30 +227,26 @@ export default function ThoiKhoaBieuScreen() {
     return days;
   }, []);
 
+  // Hàm xử lý khi chọn ngày trên lịch
   const handleDayPress = useCallback(async (day) => {
     setSelectedDate(day.dateString);
     setCalendarExpanded(false);
     setCurrentWeekStartDate(getWeekStartDate(day.dateString));
   }, [getWeekStartDate]);
 
+  // Hàm xử lý khi vuốt trên lịch
   const handleSwipe = useCallback(async (event) => {
     if (event.nativeEvent.state === State.END) {
       let newDate = new Date(selectedDate);
       if (event.nativeEvent.translationX > 50) {
-        // Swipe right (previous day)
         newDate.setDate(newDate.getDate() - 1);
       } else if (event.nativeEvent.translationX < -50) {
-        // Swipe left (next day)
         newDate.setDate(newDate.getDate() + 1);
       } else {
-        // If the swipe wasn't significant enough, don't change the date
         return;
       }
-      
       const newDateString = newDate.toISOString().split('T')[0];
       await handleDayPress({ dateString: newDateString });
-      
-      // Update the current week start date if necessary
       const newWeekStartDate = getWeekStartDate(newDateString);
       if (newWeekStartDate !== currentWeekStartDate) {
         setCurrentWeekStartDate(newWeekStartDate);
@@ -254,32 +254,30 @@ export default function ThoiKhoaBieuScreen() {
     }
   }, [selectedDate, handleDayPress, getWeekStartDate, currentWeekStartDate]);
 
+  // Hàm xử lý khi nhấn nút reset dữ liệu
   const handleResetData = useCallback(async () => {
     setIsLoading(true);
     try {
       await api_ictu(await AsyncStorage.getItem('username'), await AsyncStorage.getItem('password'), 'reset');
       await AsyncStorage.setItem('lastUpdate', new Date().toLocaleString('vi-VN'));
-      // Fetch and update the schedule data after reset
       await fetchScheduleData();
       await fetchExamData();
       await fetchUserInfo();
       await fetchTimeUpdate();
       setNotification(true);
     } catch (error) {
-      console.error('Error resetting data:', error);
-      Alert.alert('Lỗi', 'Không thể cập nhật dữ liệu. Vui lòng thử lại sau.');
+      Alert.alert('Lỗi', 'Không thể cập nhật dữ liệu: ' + error.message);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  // Hàm render mục thời khóa biểu
   const renderClassItem = useCallback(({ item }) => {
     const [startPeriod, endPeriod] = item['tiet_hoc'].split(' --> ').map(Number);
     const startTime = periods[startPeriod].start;
     const endTime = periods[endPeriod].end;
-  
     const selectedClass = { ...item, startTime, endTime };
-  
     return (
       <TouchableOpacity
         onPress={() => {
@@ -302,18 +300,15 @@ export default function ThoiKhoaBieuScreen() {
               <Text className="text-white font-semibold text-xs">{startTime} - {endTime}</Text>
             </View>
           </View>
-  
           <Text className="text-xl font-bold text-white mb-3 leading-tight" numberOfLines={2} ellipsizeMode="tail">
             {item['lop_hoc_phan']}
           </Text>
-  
           <View className="flex-row items-center mb-2">
             <Ionicons name="person-outline" size={18} color="#a0aec0" />
             <Text className="text-gray-400 ml-2 text-sm font-medium flex-1" numberOfLines={1} ellipsizeMode="tail">
               {item['giang_vien']}
             </Text>
           </View>
-  
           <View className="flex-row items-center">
             <Ionicons name="location-outline" size={18} color="#a0aec0" />
             <Text className="text-gray-400 ml-2 text-sm font-medium flex-1" numberOfLines={1} ellipsizeMode="tail">
@@ -325,9 +320,9 @@ export default function ThoiKhoaBieuScreen() {
     );
   }, [periods, setSelectedClass, setModalVisible]);
   
+  // Hàm render mục lịch thi
   const renderExamItem = useCallback(({ item }) => {
     const [startTime, endTime] = item.ca_thi.match(/\(([^)]+)\)/)[1].split('-');
-  
     return (
       <TouchableOpacity
         onPress={() => {
@@ -350,25 +345,21 @@ export default function ThoiKhoaBieuScreen() {
               <Text className="text-white font-semibold text-xs">{startTime} - {endTime}</Text>
             </View>
           </View>
-  
           <Text className="text-xl font-bold text-white mb-3 leading-tight" numberOfLines={2} ellipsizeMode="tail">
             {item.ten_hoc_phan}
           </Text>
-  
           <View className="flex-row items-center mb-2">
             <Ionicons name="code-outline" size={18} color="#a0aec0" />
             <Text className="text-gray-400 ml-2 text-sm font-medium">
               Mã HP: {item.ma_hoc_phan} | SBD: {item.so_bao_danh}
             </Text>
           </View>
-  
           <View className="flex-row items-center mb-2">
             <Ionicons name="document-text-outline" size={18} color="#a0aec0" />
             <Text className="text-gray-400 ml-2 text-sm font-medium flex-1" numberOfLines={1} ellipsizeMode="tail">
               {item.hinh_thuc_thi}
             </Text>
           </View>
-  
           <View className="flex-row items-center">
             <Ionicons name="location-outline" size={18} color="#a0aec0" />
             <Text className="text-gray-400 ml-2 text-sm font-medium flex-1" numberOfLines={1} ellipsizeMode="tail">
@@ -380,7 +371,7 @@ export default function ThoiKhoaBieuScreen() {
     );
   }, [setSelectedExam, setExamModalVisible]);
   
-
+  // Hàm render mục ngày trong tuần
   const memoizedCalendar = useMemo(() => (
     <Calendar
       onDayPress={handleDayPress}
@@ -388,7 +379,7 @@ export default function ThoiKhoaBieuScreen() {
         [selectedDate]: {
           selected: true,
           disableTouchEvent: true,
-          selectedColor: '#2563EB',  // Màu xanh đậm hơn cho chế độ tối
+          selectedColor: '#2563EB', 
           selectedTextColor: '#FFFFFF',
         },
         ...examData.reduce((acc, exam) => {
@@ -397,39 +388,39 @@ export default function ThoiKhoaBieuScreen() {
             ...acc[examDate],
             marked: true,
             dotColor: '#EF4444',
-            activeOpacity: 0.8,  // Giúp nút tương tác tốt hơn
+            activeOpacity: 0.8, 
           };
           return acc;
         }, {})
       }}
       firstDay={1}
-      style={{ borderWidth: 1, borderColor: '#374151', borderRadius: 10, marginTop: 10, padding: 15 }}  // Thay đổi màu viền
+      style={{ borderWidth: 1, borderColor: '#374151', borderRadius: 10, marginTop: 10, padding: 15 }}
       theme={{
-        backgroundColor: '#1F2937',  // Màu nền tối
-        calendarBackground: '#1F2937',  // Màu nền lịch tối
-        textSectionTitleColor: '#94A3B8',  // Màu chữ phần tiêu đề
-        monthTextColor: '#F9FAFB',  // Màu chữ tháng
-        arrowColor: '#2563EB',  // Màu mũi tên điều hướng
-        todayTextColor: '#3B82F6',  // Màu ngày hôm nay
-        dayTextColor: '#F3F4F6',  // Màu chữ ngày thường
-        textDisabledColor: '#6B7280',  // Màu chữ ngày không khả dụng
-        selectedDayBackgroundColor: '#2563EB',  // Nền ngày được chọn
-        selectedDayTextColor: '#FFFFFF',  // Màu chữ ngày được chọn
-        dotColor: '#EF4444',  // Màu chấm đỏ cho các ngày có kỳ thi
-        selectedDotColor: '#FFFFFF',  // Màu chấm cho ngày đã chọn
+        backgroundColor: '#1F2937',
+        calendarBackground: '#1F2937',
+        textSectionTitleColor: '#94A3B8',
+        monthTextColor: '#F9FAFB',
+        arrowColor: '#2563EB',
+        todayTextColor: '#3B82F6',
+        dayTextColor: '#F3F4F6',
+        textDisabledColor: '#6B7280',
+        selectedDayBackgroundColor: '#2563EB',
+        selectedDayTextColor: '#FFFFFF',
+        dotColor: '#EF4444',
+        selectedDotColor: '#FFFFFF',
       }}
       dayComponent={({ date, state }) => (
         <TouchableOpacity
           onPress={() => handleDayPress(date)}
           style={{
-            width: 40,  // Đảm bảo phù hợp với nhiều kích thước màn hình
+            width: 40,
             height: 40,
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: 20,
             backgroundColor: selectedDate === date.dateString
-              ? '#2563EB'  // Màu nền cho ngày được chọn
-              : state === 'today' ? '#2563EB20' : 'transparent',  // Màu nhạt cho ngày hôm nay
+              ? '#2563EB'
+              : state === 'today' ? '#2563EB20' : 'transparent',
           }}
         >
           <Text
@@ -438,7 +429,7 @@ export default function ThoiKhoaBieuScreen() {
               fontWeight: state === 'today' ? 'bold' : 'normal',
               color: selectedDate === date.dateString
                 ? '#FFFFFF'
-                : state === 'disabled' ? '#6B7280' : '#D1D5DB',  // Màu chữ của ngày
+                : state === 'disabled' ? '#6B7280' : '#D1D5DB',
             }}
           >
             {date.day}
@@ -450,7 +441,7 @@ export default function ThoiKhoaBieuScreen() {
                 style={{
                   width: 6,
                   height: 6,
-                  backgroundColor: '#10B981',  // Màu xanh cho chấm class
+                  backgroundColor: '#10B981',
                   borderRadius: 3,
                   marginHorizontal: 1,
                 }}
@@ -462,7 +453,7 @@ export default function ThoiKhoaBieuScreen() {
                 style={{
                   width: 6,
                   height: 6,
-                  backgroundColor: '#EF4444',  // Màu đỏ cho chấm exam
+                  backgroundColor: '#EF4444',
                   borderRadius: 3,
                   marginHorizontal: 1,
                 }}
@@ -474,25 +465,25 @@ export default function ThoiKhoaBieuScreen() {
     />
   ), [selectedDate, handleDayPress, getNumberOfClassesForDay, getNumberOfExamsForDay, examData, convertDateFormat]);
   
+  // Hàm render mục ngày trong tuần
   const WeekDayButton = useCallback(({ day }) => {
     const { width } = useWindowDimensions();
-    const buttonWidth = (width - 32) / 7 - 8; // 32 cho padding ngang, 7 cho ngày, 8 cho margin
-  
+    const buttonWidth = (width - 32) / 7 - 8;
     return (
       <TouchableOpacity
         onPress={() => handleDayPress(day)}
         style={{ width: buttonWidth }}
         className={`p-2 rounded-2xl mr-1 ${
           selectedDate === day.dateString
-            ? 'bg-blue-600'  // Màu xanh đậm hơn cho ngày được chọn
-            : 'bg-gray-700'  // Màu nền tối cho các ngày khác
+            ? 'bg-blue-600'
+            : 'bg-gray-700'
         }`}
       >
         <Text 
           className={`text-xs font-medium text-center ${
             selectedDate === day.dateString
-              ? 'text-white'  // Màu chữ trắng cho ngày được chọn
-              : 'text-gray-300'  // Màu chữ nhạt cho các ngày khác
+              ? 'text-white'
+              : 'text-gray-300'
           }`}
           numberOfLines={1}
         >
@@ -501,8 +492,8 @@ export default function ThoiKhoaBieuScreen() {
         <Text 
           className={`text-center font-bold ${
             selectedDate === day.dateString
-              ? 'text-white'  // Màu trắng cho số ngày được chọn
-              : 'text-gray-300'  // Màu chữ nhạt cho số ngày khác
+              ? 'text-white'
+              : 'text-gray-300'
           }`}
         >
           {day.dayOfMonth}
@@ -511,13 +502,13 @@ export default function ThoiKhoaBieuScreen() {
           {[...Array(Math.min(2, getNumberOfClassesForDay(day.dateString)))].map((_, i) => (
             <View
               key={`class-${i}`}
-              className="w-1 h-1 bg-green-400 rounded-full mx-0.5"  // Màu xanh sáng hơn cho các lớp học
+              className="w-1 h-1 bg-green-400 rounded-full mx-0.5"
             />
           ))}
           {[...Array(Math.min(2, getNumberOfExamsForDay(day.dateString)))].map((_, i) => (
             <View
               key={`exam-${i}`}
-              className="w-1 h-1 bg-red-400 rounded-full mx-0.5"  // Màu đỏ sáng hơn cho các kỳ thi
+              className="w-1 h-1 bg-red-400 rounded-full mx-0.5"
             />
           ))}
         </View>
@@ -525,10 +516,10 @@ export default function ThoiKhoaBieuScreen() {
     );
   }, [selectedDate, handleDayPress, getNumberOfClassesForDay, getNumberOfExamsForDay]);
   
+  // Hàm render mục thông tin người dùng
   const UserInfo = ({ user, lastUpdateTime }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const fadeAnim = useRef(new Animated.Value(1)).current;
-  
     const userInfoSections = [
       { label: 'Tên', value: user.name },
       { label: 'Mã sinh viên', value: user.masinhvien },
@@ -536,7 +527,6 @@ export default function ThoiKhoaBieuScreen() {
       { label: 'Khóa', value: user.khoa },
       { label: 'Phát triển bởi', value: 'Hứa Đức Quân' },
     ];
-  
     useEffect(() => {
       const animateText = () => {
         Animated.sequence([
@@ -552,15 +542,12 @@ export default function ThoiKhoaBieuScreen() {
           }),
         ]).start();
       };
-  
       const interval = setInterval(() => {
         animateText();
         setCurrentIndex((prevIndex) => (prevIndex + 1) % userInfoSections.length);
       }, 3000);
-  
       return () => clearInterval(interval);
     }, [fadeAnim, userInfoSections.length]);
-  
     return (
       <View className="bg-gray-800 bg-opacity-60 rounded-3xl p-4 mb-4 shadow-lg">
         <Animated.View style={{ opacity: fadeAnim }}>
@@ -578,7 +565,7 @@ export default function ThoiKhoaBieuScreen() {
     );
   };
   
-
+// Hàm render
   return (
     <GestureHandlerRootView className="flex-1">
     <StatusBar barStyle="light-content" />
@@ -601,9 +588,7 @@ export default function ThoiKhoaBieuScreen() {
           <Ionicons name="refresh" size={24} color="white" />
         </TouchableOpacity>
           </View>
-
           <UserInfo user={user} lastUpdateTime={lastUpdateTime} />
-
           <View className="bg-gray-800 rounded-3xl shadow-lg p-4 mb-6">
             <FlatList
               horizontal
@@ -613,7 +598,6 @@ export default function ThoiKhoaBieuScreen() {
               keyExtractor={(day) => day.dateString}
               className="mb-4"
             />
-
             <TouchableOpacity
               onPress={() => setCalendarExpanded(!calendarExpanded)}
               className="flex-row items-center justify-center py-3 bg-gray-900 rounded-full"
@@ -627,10 +611,8 @@ export default function ThoiKhoaBieuScreen() {
                 color="#ffffff"
               />
             </TouchableOpacity>
-
             {calendarExpanded && memoizedCalendar}
           </View>
-
           <FlatList
             data={[...getScheduleForDate(), ...getExamsForDate()]}
             renderItem={({ item }) => item.ca_thi ? renderExamItem({ item }) : renderClassItem({ item })}
@@ -648,7 +630,6 @@ export default function ThoiKhoaBieuScreen() {
           />
         </View>
       </PanGestureHandler>
-
         <Modal
           animationType="slide"
           transparent={true}
@@ -685,7 +666,6 @@ export default function ThoiKhoaBieuScreen() {
           </LinearGradient>
           </View>
         </Modal>
-
         <Modal
           animationType="slide"
           transparent={true}
@@ -720,14 +700,12 @@ export default function ThoiKhoaBieuScreen() {
             </View>
           </View>
         </Modal>
-        
         <TouchableOpacity
         className="absolute bottom-6 left-6 bg-blue-500 rounded-full w-14 h-14 justify-center items-center shadow-lg"
         onPress={openMenu}
       >
         <Ionicons name="menu-outline" size={28} color="white" />
       </TouchableOpacity>
-
       {modalProps && (
         <ModalComponent
           visible={modalProps.showModal}
@@ -741,7 +719,6 @@ export default function ThoiKhoaBieuScreen() {
           onActionPress={modalProps.onActionPress}
         />
       )}
-
       {notification && (
         <ModalComponent
           visible={notification}
@@ -752,7 +729,6 @@ export default function ThoiKhoaBieuScreen() {
           closeColor="bg-blue-500"
         />
       )}
- {/* Modal Menu */}
         <Modal
           transparent={true}
           animationType="fade"
@@ -768,12 +744,9 @@ export default function ThoiKhoaBieuScreen() {
             className="p-6"
           >
                 <Text className="text-2xl font-bold text-center mb-4 text-gray-300">Menu</Text>
-
-                {/* Thêm nút có hiệu ứng hover */}
                 <TouchableOpacity className="mb-4 bg-gray-700 rounded-md p-3 hover:bg-gray-600" onPress={() => setAboutModalVisible(true)}>
                   <Text className="text-white text-center">Thông tin ứng dụng</Text>
                 </TouchableOpacity>
-
                 <ModalComponent
                 visible={isAboutModalVisible}
                 onClose={() => setAboutModalVisible(false)}
@@ -782,45 +755,37 @@ export default function ThoiKhoaBieuScreen() {
                 closeText={'Đóng'}
                 closeColor={'bg-gray-700'}
               />
-                {/* Thêm nút nhật ký thay đổi màu nền và hover */}
                 <TouchableOpacity className="mb-4 bg-pink-700 rounded-md p-3 hover:bg-green-500" onPress={() => setChangelogModalVisible(true)}>
                   <Text className="text-white text-center">Nhật ký thay đổi</Text>
                 </TouchableOpacity>
-
                 <ModalComponent
                 visible={isChangelogModalVisible}
                 onClose={() => setChangelogModalVisible(false)}
                 title="Nhật ký thay đổi"
-                content={`** Phiên bản 1.3.beta **\n- Cập nhật & sửa lỗi thông báo của ứng dụng giúp thông báo chính xác hơn \n- Sửa lỗi ứng dụng không chạy trên nền khiến thiết bị không thể nhận thông báo \n- Cải thiện hiệu suất và tối ưu hóa ứng dụng`}
+                content={`** Phiên bản 1.5.stable **\n- Thay đổi phiên bản ứng dụng từ beta sang stable.\n- Sửa lỗi ứng dụng chạy trong tác vụ nền.\n- Cải thiện khả năng thông báo của ứng dụng.\n- Cải thiện hiệu suất và tối ưu hoá mà nguồn cho phiên bản stable.\n- Cải thiện khả năng hiển thị lỗi của ứng dụng.`}
                 closeText={'Đóng'}
                 closeColor={'bg-pink-700'}
               />
-                {/* Thay đổi màu nền và hover để phù hợp với chế độ tối */}
                 <TouchableOpacity className="mb-4 bg-green-700 rounded-md p-3 hover:bg-green-500" onPress={() => handleMenuOption('source')}>
                   <Text className="text-white text-center">Mã nguồn</Text>
                 </TouchableOpacity>
-
                 <TouchableOpacity className="mb-4 bg-purple-700 rounded-md p-3 hover:bg-purple-500" onPress={() => handleMenuOption('contact')}>
                   <Text className="text-white text-center">Liên hệ</Text>
                 </TouchableOpacity>
-
+                <TouchableOpacity className="mb-4 bg-sky-500 rounded-md p-3 hover:bg-purple-500" onPress={() => handleMenuOption('aichat')}>
+                  <Text className="text-white text-center">Trò Chuyện Với QAI</Text>
+                </TouchableOpacity>
                 <TouchableOpacity className="mb-4 bg-yellow-600 rounded-md p-3 hover:bg-yellow-400" onPress={() => handleMenuOption('update')}>
                   <Text className="text-white text-center">Kiểm tra cập nhật</Text>
                 </TouchableOpacity>
-
-                {/* Nút đóng với màu tối hơn và hiệu ứng hover */}
                 <TouchableOpacity onPress={closeMenu} className="mt-4 bg-red-600 rounded-md p-3 hover:bg-red-400">
                   <Text className="text-white text-center">Đóng</Text>
                 </TouchableOpacity>
-
-                {/* Đường kẻ ngang, thay đổi màu cho chế độ tối */}
                 <View className="border-t border-gray-500 my-4"></View>
-
-                {/* Hiển thị thông tin ứng dụng với màu sáng hơn */}
                 <View className="flex items-center">
                   <Text className="text-sm text-gray-300 mb-1 text-center">
                     Package ID: <Text className="font-semibold text-gray-100">com.hdquandev.thoikhoabieuapp</Text> | 
-                    Version: <Text className="font-semibold text-gray-100">1.3.beta</Text> | Powered by <Text className="font-semibold text-gray-100">Hứa Đức Quân</Text> | Build Day <Text className="font-semibold text-gray-100">12/09/2024</Text>
+                    Version: <Text className="font-semibold text-gray-100">1.5.stable</Text> | Powered by <Text className="font-semibold text-gray-100">Hứa Đức Quân</Text> | Build Day <Text className="font-semibold text-gray-100">13/09/2024</Text>
                   </Text>
                 </View>
               </LinearGradient>
@@ -833,8 +798,6 @@ export default function ThoiKhoaBieuScreen() {
     >
       <Ionicons name="log-out-outline" size={28} color="white" />
     </TouchableOpacity>
-
-    {/* Modal Đăng xuất */}
     <Modal
       transparent={true}
       animationType="fade"
@@ -865,10 +828,7 @@ export default function ThoiKhoaBieuScreen() {
         </View>
       </View>
     </Modal>
-
     </LinearGradient>
-
-    {/* Loading Modal */}
     <Modal
       transparent={true}
       animationType="fade"
