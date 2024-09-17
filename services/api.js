@@ -56,6 +56,7 @@ const formatDateTime = (date) => {
 
 // Định nghĩa các đường dẫn API
 const url_api = 'https://search.quanhd.net/get_tkb'; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
+//const url_api = 'http://172.20.203.235:5000/get_tkb'; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
 const url_checkUpdate = 'https://api.quanhd.net/tkb_app.json'; // API endpoint check update
 
 // Hàm gọi API để lấy dữ liệu thời khóa biểu và lịch thi
@@ -68,6 +69,9 @@ export const api_ictu = async (username = '', password = '', type = 'login') => 
         if (response.status === 200) {
             await cancelAllClassNotifications();
             const data = response.data.thoikhoabieu;
+            if (!Array.isArray(data)) {
+                throw new TypeError('Dữ liệu thoikhoabieu không phải là mảng');
+            }
             const currentDate = new Date();
             const classesByDay = {};
             for (const weekData of data) {
@@ -85,7 +89,6 @@ export const api_ictu = async (username = '', password = '', type = 'login') => 
                             classesByDay[dateKey] = [];
                         }
                         classesByDay[dateKey].push(item);
-
                         await scheduleClassNotifications(
                             item['lop_hoc_phan'],
                             new Date(formattedDate),
@@ -113,7 +116,10 @@ export const api_ictu = async (username = '', password = '', type = 'login') => 
                 }
             }
             if (response.data.lichthi) {
-                const examData = response.data.lichthi[0];
+                const examData = response.data.lichthi;
+                if (!Array.isArray(examData)) {
+                    throw new TypeError('Dữ liệu lichthi không phải là mảng');
+                }
                 for (const item of examData) {
                     const [day, month, year] = item.ngay_thi.split('/');
                     const [startTime] = item.ca_thi.match(/\(([^)]+)\)/)[1].split('-');
@@ -141,12 +147,15 @@ export const api_ictu = async (username = '', password = '', type = 'login') => 
                 }
             }
             await AsyncStorage.setItem('userData_ThoiKhoaBieu', JSON.stringify(response.data.thoikhoabieu));
-            await AsyncStorage.setItem('userData_LichThi', JSON.stringify(response.data.lichthi[0]));
+            await AsyncStorage.setItem('userData_LichThi', JSON.stringify(response.data.lichthi));
             await AsyncStorage.setItem('userInfo', JSON.stringify(response.data.user_info));
+            await AsyncStorage.setItem('userData_Diem', JSON.stringify(response.data.diem));
+            await AsyncStorage.setItem('userData_DiemDetail', JSON.stringify(response.data.diem_detail));
             await AsyncStorage.setItem('lastUpdate', new Date().toLocaleString('vi-VN'));
             return response.data;
         }
     } catch (error) {
+        console.log(error);
         const errorMessage = error.response?.error || 'Đã xảy ra lỗi khi kết nối đến máy chủ API: ' + error;
         throw new Error(errorMessage);
     }

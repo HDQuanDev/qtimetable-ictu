@@ -4,16 +4,16 @@ import { Linking } from 'react-native';
 
 // Hàm kiểm tra cập nhật ứng dụng
 export const checkForUpdate = async (type = 'one') => {
-    const appVersion = '1.5.stable';
+    const appVersion = '1.6.stable';
     const state = await NetInfo.fetch();
-    if (state.isConnected) {
+    if (state.isConnected && state.isInternetReachable){
         try {
             const downloadUrl = await api_checkUpdate(appVersion, type);
             if (downloadUrl && downloadUrl !== true) {
                 return {
                     showModal: true,
                     title: 'Cập nhật ứng dụng',
-                    content: 'Đã có phiên bản mới của ứng dụng. Vui lòng cập nhật để sử dụng các tính năng mới.',
+                    content: 'Đã có phiên bản mới của ứng dụng. Vui lòng cập nhật để giúp cải thiện hiệu suất tổng thể của ứng dụng, và sử dụng các tính năng mới nhất, giúp ứng dụng hoạt động ổn định hơn.',
                     actionText: 'Cập nhật',
                     actionColor: 'bg-blue-600',
                     onActionPress: () => Linking.openURL(downloadUrl),

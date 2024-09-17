@@ -1,13 +1,12 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from './screens/LoginScreen';
-import ThoiKhoaBieuScreen from './screens/ThoiKhoaBieuScreen';
+import SwipeableScreens from './components/SwipeableScreens';
 import { AuthProvider, useAuth } from './AuthContext';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
-import * as Notifications from 'expo-notifications';
 import { checkForUpdate } from './components/CheckUpdate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ModalComponent from './components/ModalComponent';
@@ -58,8 +57,8 @@ function Navigation() {
     <Stack.Navigator>
       {isLoggedIn ? (
         <Stack.Screen 
-          name="ThoiKhoaBieu" 
-          component={ThoiKhoaBieuScreen} 
+          name="MainContent" 
+          component={SwipeableScreens}
           options={{ headerShown: false }} 
         />
       ) : (
@@ -135,7 +134,7 @@ export default function App() {
   // Hiển thị modal chào mừng lần đầu khi cài app
   useEffect(() => {
     const checkFirstTime = async () => {
-      const firstTime = await AsyncStorage.getItem('firstTime_v1.3.beta');
+      const firstTime = await AsyncStorage.getItem('firstTime_v1.6.stable');
       if (!firstTime) {
         setShowFirstTime({
           showModal: true,
@@ -144,7 +143,7 @@ export default function App() {
           actionText: 'Đã hiểu',
           actionColor: 'bg-blue-600',
           onActionPress: async () => {
-            await AsyncStorage.setItem('firstTime_v1.3.beta', 'false');
+            await AsyncStorage.setItem('firstTime_v1.6.stable', 'false');
             setShowFirstTime(null);
           },
           closeText: 'Hủy',
@@ -158,7 +157,6 @@ export default function App() {
   return (
     <AuthProvider>
       <NavigationContainer>
-        <Navigation />
         {modalProps && (
         <ModalComponent
           visible={modalProps.showModal}
@@ -195,6 +193,7 @@ export default function App() {
           closeColor="bg-red-600"
         />
       )}
+      <Navigation />
       </NavigationContainer>
       <Toast config={toastConfig}/>
     </AuthProvider>

@@ -6,6 +6,7 @@ import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendTokenToServer } from '../services/token';
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
 
 const BACKGROUND_FETCH_TASK = 'background-fetch-task';
 const NOTIFICATION_CHANNEL_ID = 'notification-tkb';
@@ -87,18 +88,21 @@ export const initializeNotifications = async () => {
   });
   await registerBackgroundFetchAsync();
   startPeriodicBackgroundCheck();
-    try {
-      const storedToken = await AsyncStorage.getItem('expoPushToken');
-      const tokenObject = await Notifications.getExpoPushTokenAsync({
-        projectId: Constants.expoConfig.extra.eas.projectId,
-      });
-      const token = tokenObject.data;
-      if (token !== storedToken) {
-        await sendTokenToServer(token);
+  const state = await NetInfo.fetch();
+    if (state.isConnected && state.isInternetReachable) {
+      try {
+        const storedToken = await AsyncStorage.getItem('expoPushToken');
+        const tokenObject = await Notifications.getExpoPushTokenAsync({
+          projectId: Constants.expoConfig.extra.eas.projectId,
+        });
+        const token = tokenObject.data;
+        if (token !== storedToken) {
+          await sendTokenToServer(token);
+        }
+      } catch (error) {
+        Alert.alert('Lỗi khi lấy token:', error.message);
       }
-    } catch (error) {
-      Alert.alert('Lỗi khi lấy token:', error.message);
-    }
+  }
 };
 
 // Hàm lên lịch thông báo cho sự kiện trong nền

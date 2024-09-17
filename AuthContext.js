@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem('isLoggedIn', 'true');
       setIsLoggedIn(true);
     } catch (error) {
-      console.error('Error logging in:', error);
+      Alert.alert('Lỗi', 'Không thể đăng nhập: ' + error.message);
     }
   };
 
