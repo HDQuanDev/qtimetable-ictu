@@ -31,9 +31,8 @@ def get_tkb_and_exam_schedule(username, password):
                 page.click('a[href="/kcntt/Reports/Form/StudentTimeTable.aspx"]')
                 page.wait_for_load_state('networkidle')
                 
-                # Chọn giá trị từ thẻ <select>
-                page.select_option('select[name="drpTerm"]', '1')  # Chọn giá trị "1"
-                page.wait_for_load_state('networkidle')  # Đợi trang tải lại sau khi chọn giá trị
+                page.select_option('select[name="drpTerm"]', '1')
+                page.wait_for_load_state('networkidle')
     
                 with page.expect_download() as download_info:
                     page.click('input[name="btnView"]')
@@ -44,6 +43,8 @@ def get_tkb_and_exam_schedule(username, password):
                 else:
                     print("Failed to download TKB")
 
+                result = {}
+
                 # Get exam schedule
                 try:
                     page.click('a[href="/kcntt/StudentViewExamList.aspx"]')
@@ -52,28 +53,70 @@ def get_tkb_and_exam_schedule(username, password):
                     find_tblCourseList = page.query_selector('#tblCourseList')
                     if not find_tblCourseList:
                         print("No exam schedule found.")
-                        return True  # Trả về True nếu không có dữ liệu
-                    rows = page.query_selector_all('#tblCourseList tr')
-                    # Kiểm tra hàng đầu tiên
-                    first_row = rows[1]
-                    first_td = first_row.query_selector('td[colspan="10"][height="1"][bgcolor="#003399"]')
-                    if first_td:
-                        print("Found the specific <td> in the first row. Stopping the process.")
-                        return True  # Trả về True nếu không có dữ liệu
-                    data = []
-                    for row in rows[1:-1]:  # Skip header row
-                        cols = row.query_selector_all('td')
-                        row_data = [col.inner_text() for col in cols]
-                        data.append(row_data)
+                    else:
+                        rows = page.query_selector_all('#tblCourseList tr')
+                        first_row = rows[1]
+                        first_td = first_row.query_selector('td[colspan="10"][height="1"][bgcolor="#003399"]')
+                        if first_td:
+                            print("Found the specific <td> in the first row. No exam schedule data.")
+                        else:
+                            data = []
+                            for row in rows[1:-1]:
+                                cols = row.query_selector_all('td')
+                                row_data = [col.inner_text() for col in cols]
+                                data.append(row_data)
 
-                    # Create DataFrame
-                    columns = ['STT', 'ma_hoc_phan', 'ten_hoc_phan', 'so_tc', 'ngay_thi', 'ca_thi', 'hinh_thuc_thi', 'so_bao_danh', 'phong_thi', 'ghi_chu']
-                    df = pd.DataFrame(data, columns=columns)
-                
-                    return df
+                            columns = ['STT', 'ma_hoc_phan', 'ten_hoc_phan', 'so_tc', 'ngay_thi', 'ca_thi', 'hinh_thuc_thi', 'so_bao_danh', 'phong_thi', 'ghi_chu']
+                            df_exam_schedule = pd.DataFrame(data, columns=columns)
+                            result['df_exam_schedule'] = df_exam_schedule.to_dict(orient='records')
+                    
                 except Exception as e:
                     print(f"Error occurred while getting exam schedule: {e}")
-                    return True  # Trả về True nếu có lỗi xảy ra
+
+                # Get mark summary
+                try:
+                    page.click('a[href="/kcntt/Home.aspx"]')
+                    page.wait_for_load_state('networkidle')
+                    page.click('a[href="/kcntt/StudentMark.aspx"]')
+                    page.wait_for_load_state('networkidle')
+                    find_grdResult = page.query_selector('#grdResult')
+                    if not find_grdResult:
+                        print("No Mark summary found.")
+                    else:
+                        rows = page.query_selector_all('#grdResult tr')
+                        data_mark = []
+                        for row in rows[1:]:
+                            cols = row.query_selector_all('td')
+                            row_data = [col.inner_text() for col in cols]
+                            data_mark.append(row_data)
+                        columns_mark = ['nam_hoc','hoc_ky','tbtl_he10_n1', 'tbtl_he10_n2', 'tbtl_he4_n1', 'tbtl_he4_n2','so_tctl_n1','so_tctl_n2','tbc_he10_n1','tbc_he10_n2','tbc_he4_n1','tbc_he4_n2','so_tc_n1','so_tc_n2']
+                        df_mark = pd.DataFrame(data_mark, columns=columns_mark)
+                        result['df_mark'] = df_mark.to_dict(orient='records')
+                except Exception as e:
+                    print(f"Error occurred while getting mark summary: {e}")
+                
+                # Get mark details
+                try:
+                    find_tblStudentMark = page.query_selector('#tblStudentMark')
+                    if not find_tblStudentMark:
+                        print("No Mark details found.")
+                    else:
+                        rows = page.query_selector_all('#tblStudentMark tr')
+                        data_mark_detail = []
+                        for row in rows[1:-1]:
+                            cols = row.query_selector_all('td')
+                            row_data = [col.inner_text() for col in cols]
+                            data_mark_detail.append(row_data)
+                        columns_mark_detail = ['STT', 'ma_hoc_phan', 'ten_hoc_phan', 'so_tc', 'lan_hoc','lan_thi','diem_thu','la_diem_tong_ket_mon','danh_gia','ma_sinh_vien','cc','thi','tkhp','diem_chu']
+                        df_mark_detail = pd.DataFrame(data_mark_detail, columns=columns_mark_detail)
+                        result['df_mark_detail'] = df_mark_detail.to_dict(orient='records')
+                except Exception as e:
+                    print(f"Error occurred while getting mark details: {e}")
+                
+                # Convert result to JSON
+                json_result = json.dumps(result, ensure_ascii=False)
+                
+                return json_result
             else:
                 print("Login failed or user is not authenticated.")
                 return None
@@ -93,16 +136,19 @@ def extract_week_info(week_str):
         return week_number, start_date, end_date
     return None, None, None
 
-def excel_to_structured_json(excel_file, data_lichthi = None):
+def excel_to_structured_json(excel_file, data_extended = None):
     if not os.path.exists(excel_file) or os.path.getsize(excel_file) == 0:
         return None
 
     try:
         df = pd.read_excel(excel_file, engine='xlrd', header=None)
         columns = ['STT', 'lop_hoc_phan', 'giang_vien', 'thu', 'tiet_hoc', 'dia_diem', 'tuan_hoc']
-        result = {"user_info": {}, "thoikhoabieu": [], "lichthi": []}
-        if data_lichthi is not None:
-            result["lichthi"].append(data_lichthi)
+        result = {"user_info": {}, "thoikhoabieu": [], "lichthi": [], "diem": [], "diem_detail": []}
+        if data_extended is not None:
+            json_data = json.loads(data_extended)
+            result["lichthi"] = json_data['df_exam_schedule']
+            result["diem"] = json_data['df_mark']
+            result["diem_detail"] = json_data['df_mark_detail']
         current_week = None
 
         for index, row in df.iterrows():
@@ -164,11 +210,10 @@ def get_tkb_api():
             raise BadRequest('Missing username or password')
         
         exam_schedule = get_tkb_and_exam_schedule(username, password)
+        
         if exam_schedule is not None:
-            data_lichthi = exam_schedule.to_dict(orient='records')
             excel_file = "TKB_exported.xls"
-            
-            result = excel_to_structured_json(excel_file, data_lichthi)
+            result = excel_to_structured_json(excel_file, exam_schedule)
             if result is None:
                 return jsonify({"error": "Failed to process timetable data"}), 500
             return jsonify(result)
