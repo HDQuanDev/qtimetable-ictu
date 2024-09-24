@@ -18,6 +18,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../AuthContext";
 import { useTheme } from "../components/ThemeProvider";
+import Constants from "expo-constants";
+import { getLogs, clearLogs } from "../components/SaveLogs";
 
 // Hàm hiển thị nút chức năng
 const MenuButton = ({ title, icon, color, onPress, isDarkMode }) => (
@@ -50,6 +52,11 @@ const MenuScreen = () => {
   const [user, setUser] = useState(null);
   const { logout } = useAuth();
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [showModalLogs, setShowModalLogs] = useState(false);
+  const [dataAsync, setDataAsync] = useState(null);
+  const [showModalData, setShowModalData] = useState(false);
+  const [showModalClearLogs, setShowModalClearLogs] = useState(false);
 
   // Fetch user info from AsyncStorage
   const fetchUserInfo = async () => {
@@ -101,7 +108,32 @@ const MenuScreen = () => {
         break;
     }
   };
-
+  const SettingsCard = ({ title, icon, children }) => {
+    return (
+      <View
+        className={`mb-4 rounded-3xl shadow-md ${
+          isDarkMode ? "bg-gray-800" : "bg-white"
+        } ${
+          isDarkMode ? "border-2 border-gray-700" : "border-2 border-gray-300"
+        }`}
+      >
+        <View
+          className={`flex-row items-center p-4 rounded-t-3xl ${
+            isDarkMode ? "bg-gray-700" : "bg-gray-200"
+          }`}
+        >
+          <Text
+            className={`text-lg font-bold ${
+              isDarkMode ? "text-white" : "text-gray-800"
+            } flex-1 text-center`}
+          >
+            {title}
+          </Text>
+        </View>
+        <View className="p-4">{children}</View>
+      </View>
+    );
+  };
   // Hiển thị giao diện
   return (
     <>
@@ -171,116 +203,172 @@ const MenuScreen = () => {
                   </View>
                 </View>
                 {/* Preferences */}
-                <View className="space-y-1">
-                  <MenuButton
-                    title="Trang chủ"
-                    icon="home-outline"
-                    color="bg-green-700"
-                    isDarkMode={isDarkMode}
-                    onPress={() => handleMenuOption("home")}
-                    className="w-full flex-row items-center p-4 rounded-3xl"
-                  />
+                <View className="flex-1 p-4 space-y-2">
                   {/* Theme Toggle */}
                   <View className="mb-4" />
-                  <TouchableOpacity
-                    className={`flex-row items-center px-4 py-3 rounded-3xl ${
-                      isDarkMode ? "bg-gray-800" : "bg-white"
-                    } ${
-                      isDarkMode
-                        ? "border-2 border-gray-700"
-                        : "border-2 border-gray-300"
-                    }`}
-                    onPress={() =>
-                      handleThemeChange(isDarkMode ? "light" : "dark")
-                    }
-                  >
-                    <View
-                      className={`w-8 h-8 rounded-full items-center justify-center mr-4 ${
-                        isDarkMode ? "bg-gray-700" : "bg-gray-300"
-                      }`}
-                    >
-                      <Ionicons
-                        name="color-palette-outline"
-                        size={24}
-                        color={isDarkMode ? "white" : "black"}
-                      />
-                    </View>
-                    <Text
-                      className={`${
-                        isDarkMode ? "text-white" : "text-gray-800"
-                      } font-medium text-base flex-1`}
-                    >
-                      Chế độ hiển thị
-                    </Text>
+                  <SettingsCard title="Cài đặt chung">
+                    <MenuButton
+                      title="Trang chủ"
+                      icon="home-outline"
+                      color="bg-green-700"
+                      isDarkMode={isDarkMode}
+                      onPress={() => handleMenuOption("home")}
+                      className="items-center p-4 rounded-3xl"
+                    />
+                    <View className="mb-4" />
                     <TouchableOpacity
+                      className={`flex-row items-center px-4 py-3 rounded-3xl ${
+                        isDarkMode ? "bg-gray-800" : "bg-white"
+                      } ${
+                        isDarkMode
+                          ? "border-2 border-gray-700"
+                          : "border-2 border-gray-300"
+                      }`}
                       onPress={() =>
                         handleThemeChange(isDarkMode ? "light" : "dark")
-                      } // Sử dụng hàm chuyển đổi giao diện
+                      }
                     >
-                      <View className="flex-row items-center">
-                        <Text
-                          className={`text-base font-medium ${
-                            isDarkMode ? "text-white" : "text-black"
-                          } mr-2`}
-                        >
-                          {isDarkMode ? "Tối" : "Sáng"}
-                        </Text>
+                      <View
+                        className={`w-8 h-8 rounded-full items-center justify-center mr-4 ${
+                          isDarkMode ? "bg-gray-700" : "bg-gray-300"
+                        }`}
+                      >
                         <Ionicons
-                          name={isDarkMode ? "moon-outline" : "sunny-outline"}
+                          name="color-palette-outline"
                           size={24}
                           color={isDarkMode ? "white" : "black"}
                         />
                       </View>
+                      <Text
+                        className={`${
+                          isDarkMode ? "text-white" : "text-gray-800"
+                        } font-medium text-base flex-1`}
+                      >
+                        Chế độ hiển thị
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() =>
+                          handleThemeChange(isDarkMode ? "light" : "dark")
+                        } // Sử dụng hàm chuyển đổi giao diện
+                      >
+                        <View className="flex-row items-center">
+                          <Text
+                            className={`text-base font-medium ${
+                              isDarkMode ? "text-white" : "text-black"
+                            } mr-2`}
+                          >
+                            {isDarkMode ? "Tối" : "Sáng"}
+                          </Text>
+                          <Ionicons
+                            name={isDarkMode ? "moon-outline" : "sunny-outline"}
+                            size={24}
+                            color={isDarkMode ? "white" : "black"}
+                          />
+                        </View>
+                      </TouchableOpacity>
                     </TouchableOpacity>
-                  </TouchableOpacity>
-                  <MenuButton
-                    title="Thông tin ứng dụng"
-                    icon="information-circle-outline"
-                    color="bg-purple-800"
-                    isDarkMode={isDarkMode}
-                    onPress={() => setAboutModalVisible(true)}
-                    className="w-full flex-row items-center p-4 rounded-3xl"
-                  />
-                  <MenuButton
-                    title="Nhật ký thay đổi"
-                    icon="git-branch-outline"
-                    color="bg-teal-700"
-                    isDarkMode={isDarkMode}
-                    onPress={() => setChangelogModalVisible(true)}
-                    className="w-full flex-row items-center p-4 rounded-xl"
-                  />
-                  <MenuButton
-                    title="Mã nguồn"
-                    icon="code-slash-outline"
-                    color="bg-blue-700"
-                    isDarkMode={isDarkMode}
-                    onPress={() => handleMenuOption("source")}
-                    className="w-full flex-row items-center p-4 rounded-xl"
-                  />
-                  <MenuButton
-                    title="Liên hệ"
-                    icon="mail-outline"
-                    color="bg-red-700"
-                    isDarkMode={isDarkMode}
-                    onPress={() => handleMenuOption("contact")}
-                    className="w-full flex-row items-center p-4 rounded-xl"
-                  />
-                  <MenuButton
-                    title="Trò Chuyện Với QAI"
-                    icon="chatbubble-ellipses-outline"
-                    color="bg-cyan-700"
-                    isDarkMode={isDarkMode}
-                    onPress={() => handleMenuOption("aichat")}
-                    className="w-full flex-row items-center p-4 rounded-xl"
-                  />
-                  <MenuButton
-                    title="Kiểm tra cập nhật"
-                    icon="cloud-download-outline"
-                    color="bg-yellow-600"
-                    isDarkMode={isDarkMode}
-                    onPress={() => handleMenuOption("update")}
-                    className="w-full flex-row items-center p-4 rounded-xl"
-                  />
+                    <MenuButton
+                      title="Xem Dữ Liệu Storage"
+                      icon="cloud-outline"
+                      color="bg-yellow-600"
+                      isDarkMode={isDarkMode}
+                      onPress={async () => {
+                        try {
+                          const keys = await AsyncStorage.getAllKeys();
+                          const filteredKeys = keys.filter(
+                            (key) => key !== "AppLogs"
+                          );
+                          const stores = await AsyncStorage.multiGet(
+                            filteredKeys
+                          );
+                          const data = stores.map((store) => ({
+                            key: store[0],
+                            value:
+                              store[0] === "password" ? "*********" : store[1],
+                          }));
+                          setDataAsync(data);
+                          setShowModalData(true);
+                        } catch (error) {
+                          console.error(
+                            "Error fetching data from AsyncStorage:",
+                            error
+                          );
+                        }
+                      }}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                    <MenuButton
+                      title="Nhật ký Lỗi"
+                      icon="bug-outline"
+                      color="bg-red-700"
+                      isDarkMode={isDarkMode}
+                      onPress={async () => {
+                        const logs = await getLogs();
+                        setLogs(JSON.parse(logs) || []);
+                        setShowModalLogs(true);
+                      }}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                    <MenuButton
+                      title="Xóa Nhật Ký Lỗi"
+                      icon="trash-outline"
+                      color="bg-red-700"
+                      isDarkMode={isDarkMode}
+                      onPress={() => setShowModalClearLogs(true)}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                    <MenuButton
+                      title="Kiểm tra cập nhật"
+                      icon="cloud-download-outline"
+                      color="bg-yellow-600"
+                      isDarkMode={isDarkMode}
+                      onPress={() => handleMenuOption("update")}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                  </SettingsCard>
+                  <SettingsCard title="Thông Tin Ứng Dụng">
+                    <MenuButton
+                      title="Thông tin ứng dụng"
+                      icon="information-circle-outline"
+                      color="bg-purple-800"
+                      isDarkMode={isDarkMode}
+                      onPress={() => setAboutModalVisible(true)}
+                      className="w-full flex-row items-center p-4 rounded-3xl"
+                    />
+                    <MenuButton
+                      title="Nhật ký thay đổi"
+                      icon="git-branch-outline"
+                      color="bg-teal-700"
+                      isDarkMode={isDarkMode}
+                      onPress={() => setChangelogModalVisible(true)}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                    <MenuButton
+                      title="Mã nguồn"
+                      icon="code-slash-outline"
+                      color="bg-blue-700"
+                      isDarkMode={isDarkMode}
+                      onPress={() => handleMenuOption("source")}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+
+                    <MenuButton
+                      title="Liên hệ"
+                      icon="mail-outline"
+                      color="bg-red-700"
+                      isDarkMode={isDarkMode}
+                      onPress={() => handleMenuOption("contact")}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                    <MenuButton
+                      title="Trò Chuyện Với QAI"
+                      icon="chatbubble-ellipses-outline"
+                      color="bg-cyan-700"
+                      isDarkMode={isDarkMode}
+                      onPress={() => handleMenuOption("aichat")}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                  </SettingsCard>
                   {/* Logout Button hr */}
                   <View className="mb-4" />
                   <TouchableOpacity
@@ -311,21 +399,24 @@ const MenuScreen = () => {
                       isDarkMode ? "text-gray-300" : "text-gray-600"
                     } text-sm`}
                   >
-                    Phiên bản <Text className="font-semibold">2.0.STABLE</Text>
+                    Phiên bản{" "}
+                    <Text className="font-semibold">
+                      {Constants.expoConfig.version}
+                    </Text>
                   </Text>
                   <Text
                     className={`${
                       isDarkMode ? "text-gray-300" : "text-gray-600"
                     } text-sm ml-2`}
                   >
-                    Build ID: <Text className="font-semibold">2024.09.22</Text>
+                    Build ID: <Text className="font-semibold">2024.09.25</Text>
                   </Text>
                   <Text
                     className={`${
                       isDarkMode ? "text-gray-300" : "text-gray-600"
                     } text-sm ml-2`}
                   >
-                    © 2024 Made with ❤️ by Hứa Đức Quân
+                    © {new Date().getFullYear()} Made with ❤️ by Hứa Đức Quân
                   </Text>
                 </View>
                 {/* Warning */}
@@ -381,11 +472,37 @@ const MenuScreen = () => {
               visible={isChangelogModalVisible}
               onClose={() => setChangelogModalVisible(false)}
               title="Nhật ký thay đổi"
-              content={`** PHIÊN BẢN 2.0.STABLE **\n\n- Thêm, giao diện Sáng và Tối\n- Thêm, cài đặt để chuyển giữa giao diện Sáng và Tối\n- Tối ưu hoá UI/UX\n- Chỉnh sửa, Tab Menu thành Cài đặt\n- Thêm, Tab Trang Cá Nhân mới\n- Chỉnh sửa, chức năng Đăng xuất được đặt vào trong Tab Cài đặt\n- Thêm, mã QR vào Tab Trang Cá Nhân\n- Thêm, thông báo những ngày không có lịch học\n- Chỉnh sửa, thông báo cập nhật dữ liệu cũ lên 3 ngày\n- Thêm, hiện thị lịch âm trong Thời khoá biểu\n- Thêm, Tab Thời gian biểu giúp xem thông tin giờ ra vào lớp của các tiết\n- Sửa lỗi, thông báo yêu cầu cập nhật dữ liệu xuất hiện khi chưa đăng nhập\n- Tối ưu hoá, hiệu suất và trải nghiệm người dùng\n\n © 2024 Made with ❤️ by Hứa Đức Quân`}
+              content={`** PHIÊN BẢN 2.1.STABLE **\n\n- Cập nhật, URL Api mới.\n- Cập nhật, giao diện cài đặt được sắp xếp lại\n- Thêm, chức năng tự động cập nhật dữ liệu lịch học, lịch thi, điểm số\n- Thêm, chức năng xem Nhật Ký Lỗi trong Cài Đặt\n- Thêm, chức năng xem Dữ Liệu Storage trong Cài Đặt\n- Sửa lỗi, nút tải lại dữ liệu ở Tab Thời Khoá Biểu và Bảng Điểm che mất nội dung\n- Clear Code\n\n© ${new Date().getFullYear()} Made with ❤️ by Hứa Đức Quân`}
               closeText={"Đóng"}
               closeColor={"bg-teal-700"}
             />
 
+            {showModalData && (
+              <ModalComponent
+                visible={true}
+                onClose={() => setShowModalData(false)}
+                title="Dữ Liệu Storage"
+                content={`${JSON.stringify(dataAsync, null, 2)}`}
+                closeText="Đóng"
+                closeColor="bg-yellow-600"
+              />
+            )}
+            {showModalClearLogs && (
+              <ModalComponent
+                visible={true}
+                onClose={() => setShowModalClearLogs(false)}
+                title="Xóa Nhật Ký Lỗi"
+                content="Bạn có chắc chắn muốn xóa toàn bộ nhật ký lỗi không? Hành động này không thể hoàn tác!"
+                closeText="Hủy"
+                closeColor="bg-gray-700"
+                actionText="Xóa"
+                actionColor="bg-red-700"
+                onActionPress={async () => {
+                  await clearLogs();
+                  setShowModalClearLogs(false);
+                }}
+              />
+            )}
             {modalProps && (
               <ModalComponent
                 visible={modalProps.showModal}
@@ -399,6 +516,32 @@ const MenuScreen = () => {
                 onActionPress={modalProps.onActionPress}
               />
             )}
+            {showModalLogs &&
+              (logs.length > 0 ? (
+                <ModalComponent
+                  visible={true}
+                  onClose={() => {
+                    setLogs([]);
+                    setShowModalLogs(false);
+                  }}
+                  title="Nhật ký lỗi"
+                  content={`${JSON.stringify(logs, null, 2)}`}
+                  closeText="Đóng"
+                  closeColor="bg-red-700"
+                />
+              ) : (
+                <ModalComponent
+                  visible={true}
+                  onClose={() => {
+                    setLogs([]);
+                    setShowModalLogs(false);
+                  }}
+                  title="Thông báo"
+                  content="Không có nhật ký lỗi nào"
+                  closeText="Đóng"
+                  closeColor="bg-blue-700"
+                />
+              ))}
           </View>
         </LinearGradient>
       </GestureHandlerRootView>

@@ -1,10 +1,11 @@
 import NetInfo from "@react-native-community/netinfo";
 import { api_checkUpdate } from "../services/api";
 import { Linking } from "react-native";
+import Constants from "expo-constants";
 
 // Hàm kiểm tra cập nhật ứng dụng
 export const checkForUpdate = async (type = "one") => {
-  const appVersion = "2.0.stable";
+  const appVersion = Constants.expoConfig.version;
   const state = await NetInfo.fetch();
   if (state.isConnected && state.isInternetReachable) {
     try {

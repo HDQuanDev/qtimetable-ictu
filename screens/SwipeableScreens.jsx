@@ -9,12 +9,12 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useTheme } from "./ThemeProvider";
-import ThoiKhoaBieuScreen from "../screens/ThoiKhoaBieuScreen";
-import MarkScreen from "../screens/MarkScreen";
-import MenuScreen from "../screens/MenuScreen";
-import ProfileScreen from "../screens/ProfileScreen";
-import ClassScheduleScreen from "../screens/ClassScheduleScreen";
+import { useTheme } from "../components/ThemeProvider";
+import ThoiKhoaBieuScreen from "./ThoiKhoaBieuScreen";
+import MarkScreen from "./MarkScreen";
+import MenuScreen from "./MenuScreen";
+import ProfileScreen from "./ProfileScreen";
+import ClassScheduleScreen from "./ClassScheduleScreen";
 
 const Tab = createBottomTabNavigator(); // Khởi tạo Tab Navigator
 

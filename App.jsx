@@ -4,7 +4,7 @@ import { Alert } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import LoginScreen from "./screens/LoginScreen";
-import SwipeableScreens from "./components/SwipeableScreens";
+import SwipeableScreens from "./screens/SwipeableScreens";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Toast, { BaseToast, ErrorToast } from "react-native-toast-message";
 import { checkForUpdate } from "./components/CheckUpdate";
@@ -14,7 +14,12 @@ import {
   initializeNotifications,
   useNotificationListener,
 } from "./components/LocalNotification";
+import {
+  registerBackgroundTaskApi,
+  runAPIIfNeeded,
+} from "./components/backgroundTasks";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { logError } from "./components/SaveLogs";
 
 const Stack = createStackNavigator(); // Khởi tạo Stack Navigator
 
@@ -82,6 +87,7 @@ export default function App() {
   const [modalProps, setModalProps] = useState(null);
   const [notification, setNotification] = useState(null);
   const [showFirstTime, setShowFirstTime] = useState(null);
+  const [showNotification, setShowNotification] = useState(null);
 
   // Kiểm tra cập nhật ứng dụng
   useEffect(() => {
@@ -97,8 +103,11 @@ export default function App() {
     const setupNotification = async () => {
       try {
         await initializeNotifications();
+        await registerBackgroundTaskApi();
+        await runAPIIfNeeded();
       } catch (error) {
         Alert.alert("Lỗi", "Không thể khởi tạo thông báo: " + error.message);
+        await logError("Lỗi khi khởi tạo thông báo:", error);
       }
     };
     setupNotification();
@@ -106,7 +115,7 @@ export default function App() {
 
   // Lắng nghe thông báo
   useNotificationListener((notification) => {
-    console.log("Received notification:", notification);
+    setShowNotification(notification);
   });
 
   // Kiểm tra thời gian cập nhật cuối cùng
@@ -200,6 +209,16 @@ export default function App() {
               content="Dữ liệu của bạn đã cũ hơn ba ngày, vui lòng cập nhật dữ liệu mới nhất bằng cách sử dụng nút reset ở trên góc!"
               closeText="Đồng ý"
               closeColor="bg-red-600"
+            />
+          )}
+          {showNotification && (
+            <ModalComponent
+              visible={showNotification}
+              onClose={() => setShowNotification(false)}
+              title={showNotification.request.content.title}
+              content={showNotification.request.content.body}
+              closeText="Đóng"
+              closeColor="bg-gray-700"
             />
           )}
           <Navigation />

@@ -7,6 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { sendTokenToServer } from "../services/token";
 import Constants from "expo-constants";
 import NetInfo from "@react-native-community/netinfo";
+import { logError } from "./SaveLogs";
 
 const BACKGROUND_FETCH_TASK = "background-fetch-task";
 const NOTIFICATION_CHANNEL_ID = "notification-tkb";
@@ -27,7 +28,11 @@ const registerBackgroundFetchAsync = async () => {
       startOnBoot: true,
     });
   } catch (err) {
-    Alert.alert("Lỗi khi đăng ký task background fetch:", err.message);
+    await logError("Lỗi khi đăng ký task background fetch:", err);
+    Alert.alert(
+      "Lỗi",
+      "Không thể đăng ký task background fetch: " + err.message
+    );
   }
 };
 
@@ -105,6 +110,7 @@ export const initializeNotifications = async () => {
         await sendTokenToServer(token);
       }
     } catch (error) {
+      await logError("Lỗi khi lấy token thông báo:", error);
       Alert.alert("Lỗi khi lấy token:", error.message);
     }
   }
@@ -137,6 +143,7 @@ export const scheduleLocalNotification = async (title, body, triggerTime) => {
     });
     return notificationId;
   } catch (error) {
+    await logError("Lỗi khi lên lịch thông báo:", error);
     Alert.alert("Lỗi khi lên lịch thông báo:", error.message);
   }
 };
@@ -150,6 +157,7 @@ export const cancelAllClassNotifications = async () => {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (error) {
+    await logError("Lỗi khi hủy thông báo:", error);
     Alert.alert("Lỗi khi hủy thông báo:", error.message);
     throw error;
   }
@@ -168,10 +176,18 @@ const scheduleNotificationForEvent = async (
     eventDate.getTime() - minutesBefore * 60000
   );
   const now = new Date();
+
   if (notificationTime > now) {
+    // Tính thời gian từ khi gửi thông báo đến khi sự kiện bắt đầu
+    const secondsUntilEvent = Math.floor(
+      (eventDate.getTime() - notificationTime.getTime()) / 1000
+    );
+
+    // Tính thời gian từ hiện tại đến khi gửi thông báo
     const secondsUntilNotification = Math.floor(
       (notificationTime.getTime() - now.getTime()) / 1000
     );
+
     let title, body;
     if (minutesBefore === 0) {
       title = `${eventName} đang bắt đầu!`;
@@ -185,8 +201,12 @@ const scheduleNotificationForEvent = async (
       } ${eventName}`;
       body =
         eventType === "class"
-          ? `Lớp học ${eventName} sẽ bắt đầu trong ${minutesBefore} phút nữa, hãy đến lớp ${eventRoom} ngay thôi!`
-          : `Môn thi ${eventName} sẽ bắt đầu trong ${minutesBefore} phút nữa, mời bạn SBD ${eventSBD} đến phòng thi ${eventRoom} ngay thôi!`;
+          ? `Lớp học ${eventName} sẽ bắt đầu trong ${
+              secondsUntilEvent / 60
+            } phút nữa, hãy đến lớp ${eventRoom} ngay thôi!`
+          : `Môn thi ${eventName} sẽ bắt đầu trong ${
+              secondsUntilEvent / 60
+            } phút nữa, mời bạn SBD ${eventSBD} đến phòng thi ${eventRoom} ngay thôi!`;
     }
     await scheduleLocalNotification(title, body, secondsUntilNotification);
   }
@@ -247,9 +267,9 @@ export const checkBackgroundFetchStatus = async () => {
   const isRegistered = await TaskManager.isTaskRegisteredAsync(
     BACKGROUND_FETCH_TASK
   );
-  console.log(
+  await logError(
     "Background fetch status:",
     BackgroundFetch.BackgroundFetchStatus[status]
   );
-  console.log("Background fetch task registered:", isRegistered);
+  await logError("Task registered:", isRegistered);
 };

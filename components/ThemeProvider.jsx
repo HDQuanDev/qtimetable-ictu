@@ -1,6 +1,13 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  Alert,
+} from "react";
 import { Appearance } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { logError } from "./SaveLogs";
 
 const ThemeContext = createContext(); // Khởi tạo Context
 
@@ -19,7 +26,8 @@ export const ThemeProvider = ({ children }) => {
         updateColorScheme(savedTheme);
       }
     } catch (error) {
-      console.error("Error loading theme preference:", error);
+      logError("Lỗi khi tải cài đặt chủ đề:", error);
+      Alert.alert("Lỗi khi tải cài đặt chủ đề:", error.message);
     }
   };
 

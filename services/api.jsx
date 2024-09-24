@@ -7,6 +7,7 @@ import {
   scheduleExamNotifications,
 } from "../components/LocalNotification";
 import { Alert } from "react-native";
+import { logError } from "../components/SaveLogs";
 
 // Định nghĩa các khung giờ học trong ngày
 const periods = {
@@ -62,8 +63,8 @@ const formatDateTime = (date) => {
 };
 
 // Định nghĩa các đường dẫn API
-const url_api = "https://search.quanhd.net/get_tkb"; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
-//const url_api = 'http://172.20.203.235:5000/get_tkb'; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
+//const url_api = "https://search.quanhd.net/get_tkb"; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
+const url_api = "http://43.228.213.95:5000/get_tkb"; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
 const url_checkUpdate = "https://api.quanhd.net/tkb_app.json"; // API endpoint check update
 
 // Hàm gọi API để lấy dữ liệu thời khóa biểu và lịch thi
@@ -113,10 +114,39 @@ export const api_ictu = async (
                 "Lỗi",
                 "Không thể lên lịch thông báo: " + error.message
               );
+              await logError("Lỗi khi lên lịch thông báo:", error);
             }
           }
         }
       }
+
+      const noClassMessages = [
+        "Ngày mai bạn không có lớp! Time to `document.body.style.backgroundColor = 'lightgreen';`",
+        "Tuyệt, ngày mai bạn không có lớp! Hãy `performHappyDance();`",
+        "Nhìn này, không có lớp ngày mai! Thời gian để `getPopcorn() && watchMovies(true);`",
+        "Thật may, ngày mai bạn không phải đến lớp. Hãy `makeYourselfComfy(true);`",
+        "Giỏi lắm, không có lớp ngày mai! Bây giờ `let's goOutside && feelTheSun();`",
+        "Ngày mai bạn không có lịch học? Đây là cơ hội để `visitFriends() || burnMidnightOil();`",
+        "Tuyệt vời, không có lớp ngày mai! Hãy `breakFromRoutine(true);`",
+        "Wow, không có lớp ngày mai! Hãy `celebrateWithIceCream();`",
+        "Ngày mai bạn không có lớp? Thời gian để `getCozy() && read();`",
+        "Không có lớp ngày mai! Bây giờ `let's goto('beach') || goto('park');`",
+        "Tuyệt, không có lớp ngày mai! Hãy `collectPets() && playWithThem();`",
+        "Wow, không có lớp ngày mai! Bây giờ `let's rentAMovie() && binge();`",
+        "Ngày mai bạn không có lớp? Thời gian để `getCreative() && expressYourself();`",
+        "Không có lớp ngày mai! Bây giờ `let's goShopping() && buySomethingNice();`",
+        "Tuyệt, không có lớp ngày mai! Hãy `tryNewRecipe() && cookSomethingYummy();`",
+        "Wow, không có lớp ngày mai! Hãy `getCrafty() && makeSomethingCool();`",
+        "Ngày mai bạn không có lớp? Thời gian để `getLostInAGoodBook() && read();`",
+        "Không có lớp ngày mai! Bây giờ `let's goForAWalk() && enjoyTheOutdoors();`",
+        "Tuyệt, không có lớp ngày mai! Hãy `getArtsy() && createSomethingBeautiful();`",
+        "Wow, không có lớp ngày mai! Hãy `getActive() && doSomethingFun();`",
+        "Ngày mai bạn không có lớp? Thời gian để `getOrganized() && declutter();`",
+        "Không có lớp ngày mai! Bây giờ `let's goForABikeRide() && feelTheWind();`",
+        "Tuyệt, không có lớp ngày mai! Hãy `getInspired() && doSomethingCreative();`",
+        "Wow, không có lớp ngày mai! Hãy `getMoving() && danceAround();`",
+        "Ngày mai bạn không có lớp? Thời gian để `getLostInMusic() && singAlong();`",
+      ];
 
       // Lên lịch thông báo cho 30 ngày tới
       for (let i = 1; i <= 30; i++) {
@@ -124,7 +154,6 @@ export const api_ictu = async (
           const notificationDate = new Date(currentDate);
           notificationDate.setDate(notificationDate.getDate() + i);
           const dateKey = formatDateTime(notificationDate).split("T")[0];
-
           const notificationTime = new Date(notificationDate);
           notificationTime.setDate(notificationTime.getDate() - 1);
           notificationTime.setHours(20, 0, 0, 0);
@@ -134,8 +163,18 @@ export const api_ictu = async (
             if (classesByDay[dateKey] && classesByDay[dateKey].length > 0) {
               message = `Ngày mai bạn có ${classesByDay[dateKey].length} lịch học cần thực hiện, hãy kiểm tra ngay lịch học của mình!`;
             } else {
-              message =
-                "Ngày mai bạn không có lịch học. Hãy tận hưởng ngày rảnh của mình!";
+              // Chọn một câu thông báo vui vẻ từ artifact "no-class-notification-messages"
+              const randomIndex = Math.floor(
+                Math.random() * noClassMessages.length
+              );
+              let messageTemplate = noClassMessages[randomIndex];
+
+              // Xử lý các ký tự đặc biệt trong thông báo
+              messageTemplate = messageTemplate.replace(/</g, "&lt;");
+              messageTemplate = messageTemplate.replace(/>/g, "&gt;");
+              messageTemplate = messageTemplate.replace(/"/g, "&quot;");
+              messageTemplate = messageTemplate.replace(/'/g, "&#39;");
+              message = messageTemplate;
             }
 
             const secondsUntilNotification = Math.max(
@@ -152,6 +191,7 @@ export const api_ictu = async (
           }
         } catch (error) {
           Alert.alert("Lỗi", "Không thể lên lịch thông báo: " + error.message);
+          await logError("Lỗi khi lên lịch thông báo:", error);
         }
       }
 
@@ -197,6 +237,7 @@ export const api_ictu = async (
           }
         } catch (error) {
           Alert.alert("Lỗi", "Không thể lên lịch thông báo: " + error.message);
+          await logError("Lỗi khi lên lịch thông báo:", error);
         }
       }
 
@@ -225,8 +266,10 @@ export const api_ictu = async (
           "lastUpdate",
           new Date().toLocaleString("vi-VN")
         );
+        await AsyncStorage.setItem("lastRunDate", new Date().toDateString());
       } catch (error) {
         Alert.alert("Lỗi", "Không thể lưu dữ liệu: " + error.message);
+        await logError("Lỗi khi lưu dữ liệu:", error);
       }
 
       return response.data;
@@ -236,6 +279,7 @@ export const api_ictu = async (
       "Lỗi",
       "Không thể lấy dữ liệu thời khóa biểu và lịch thi: " + error.message
     );
+    await logError("Lỗi khi lấy dữ liệu:", error);
     const errorMessage =
       error.response?.error ||
       "Đã xảy ra lỗi khi kết nối đến máy chủ API: " + error;
@@ -266,6 +310,7 @@ export const api_checkUpdate = async (app_version, type = "one") => {
       "Lỗi",
       "Không thể kiểm tra cập nhật ứng dụng: " + error.message
     );
+    await logError("Lỗi khi kiểm tra cập nhật:", error);
     const errorMessage =
       error.response?.error || "Đã xảy ra lỗi khi kết nối đến máy chủ API";
     throw new Error(errorMessage);

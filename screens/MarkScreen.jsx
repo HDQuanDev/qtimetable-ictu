@@ -316,7 +316,7 @@ const MarkScreen = () => {
           >
             <Animated.View style={{ transform: [{ rotate: spin }] }}>
               <Ionicons
-                name="stats-chart"
+                name="refresh"
                 size={24}
                 color={isDarkMode ? "#93c5fd" : "#60a5fa"}
               />
@@ -358,15 +358,6 @@ const MarkScreen = () => {
             {(props) => <SubjectMarks {...props} isDarkMode={isDarkMode} />}
           </Tab.Screen>
         </Tab.Navigator>
-        <TouchableOpacity
-          className={`absolute bottom-6 right-6 p-4 rounded-full ${
-            isDarkMode ? "bg-[#4F46E5]" : "bg-[#3B82F6]"
-          }`}
-          onPress={handleRefresh}
-          disabled={refreshing}
-        >
-          <Ionicons name="refresh" size={24} color="white" />
-        </TouchableOpacity>
       </LinearGradient>
     </GestureHandlerRootView>
   );

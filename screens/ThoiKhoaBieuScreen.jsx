@@ -844,9 +844,11 @@ export default function ThoiKhoaBieuScreen() {
             className={`bg-opacity-20 p-2 rounded-full ${
               isDarkMode ? "bg-gray-700" : "bg-blue-100"
             } mb-4`}
+            onPress={handleResetData}
+            disabled={isLoading}
           >
             <Ionicons
-              name="calendar"
+              name="refresh"
               size={24}
               color={isDarkMode ? "#93c5fd" : "#60a5fa"}
             />
@@ -1183,15 +1185,6 @@ export default function ThoiKhoaBieuScreen() {
             closeColor="bg-blue-500"
           />
         )}
-        <TouchableOpacity
-          className={`absolute bottom-6 right-6 p-4 rounded-full ${
-            isDarkMode ? "bg-[#4F46E5]" : "bg-[#3B82F6]"
-          }`}
-          onPress={handleResetData}
-          disabled={isLoading}
-        >
-          <Ionicons name="refresh" size={24} color="white" />
-        </TouchableOpacity>
       </LinearGradient>
       <Modal
         transparent={true}
