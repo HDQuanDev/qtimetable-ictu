@@ -1,192 +1,135 @@
 import * as BackgroundFetch from "expo-background-fetch";
 import * as TaskManager from "expo-task-manager";
+import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
-import { sendImmediateNotification } from "./LocalNotification";
-import { api_ictu } from "../services/api";
-import { AppState } from "react-native";
 import { logError } from "./SaveLogs";
+import axios from "axios";
 
 const BACKGROUND_FETCH_TASK = "background-fetch-task-api";
-const LAST_RUN_DATE_KEY = "lastRunDate";
-const USERNAME_KEY = "username";
-const PASSWORD_KEY = "password";
-const LAST_UPDATE_KEY = "lastUpdate";
-const TASK_LOCK_KEY = "taskLock";
-
-const START_HOUR = 1;
-const START_MINUTE = 1;
-const END_HOUR = 6;
-const END_MINUTE = 30;
-
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 5 * 60 * 1000; // 5 minutes
-
-const isTimeToRun = async () => {
+const url_api = "https://api-tkb.quanhd.net/get_tkb";
+export const api_ictu = async (
+  username = "",
+  password = "",
+  type = "login"
+) => {
   try {
-    const now = new Date();
-    const hour = now.getHours();
-    const minutes = now.getMinutes();
-
-    const isWithinTimeRange =
-      hour > START_HOUR ||
-      (hour === START_HOUR && minutes >= START_MINUTE) ||
-      hour < END_HOUR ||
-      (hour === END_HOUR && minutes <= END_MINUTE);
-
-    if (isWithinTimeRange) {
-      const today = now.toDateString();
-      const lastRunDate = await AsyncStorage.getItem(LAST_RUN_DATE_KEY);
-
-      if (lastRunDate !== today) {
-        return true;
+    const response = await axios.post(url_api, {
+      username:
+        type === "login" ? username : await AsyncStorage.getItem("username"),
+      password:
+        type === "login" ? password : await AsyncStorage.getItem("password"),
+    });
+    if (response.status === 200) {
+      try {
+        await AsyncStorage.setItem(
+          "userData_ThoiKhoaBieu",
+          JSON.stringify(response.data.thoikhoabieu)
+        );
+        await AsyncStorage.setItem(
+          "userData_LichThi",
+          JSON.stringify(response.data.lichthi)
+        );
+        await AsyncStorage.setItem(
+          "userInfo",
+          JSON.stringify(response.data.user_info)
+        );
+        await AsyncStorage.setItem(
+          "userData_Diem",
+          JSON.stringify(response.data.diem)
+        );
+        await AsyncStorage.setItem(
+          "userData_DiemDetail",
+          JSON.stringify(response.data.diem_detail)
+        );
+        await AsyncStorage.setItem(
+          "lastUpdate",
+          new Date().toLocaleString("vi-VN")
+        );
+        await AsyncStorage.setItem("lastRunDate", new Date().toDateString());
+      } catch (error) {
+        await logError("ERROR", "backgroundTasks.jsx - 64: api_ictu: " + error.message);
       }
+      return true;
     }
-    return false;
   } catch (error) {
-    await logError("Lỗi khi kiểm tra thời gian chạy:", error);
-    return false;
+    await logError("ERROR", "backgroundTasks.jsx - 64: api_ictu: " + error.message);
   }
 };
 
-const acquireLock = async () => {
-  const lockValue = await AsyncStorage.getItem(TASK_LOCK_KEY);
-  if (!lockValue) {
-    await AsyncStorage.setItem(TASK_LOCK_KEY, "locked");
-    return true;
-  }
-  return false;
+// Hàm kiểm tra xem có nên chạy tác vụ hay không
+const shouldRunTask = async () => {
+  const now = new Date();
+  const hour = now.getHours();
+  const lastRunDate = await AsyncStorage.getItem("lastRunDate");
+  const today = now.toDateString();
+
+  return (hour >= 16 && hour <= 18) && lastRunDate !== today;
 };
 
-const releaseLock = async () => {
-  await AsyncStorage.removeItem(TASK_LOCK_KEY);
-};
-
-const runAPITask = async (retryCount = 0) => {
-  if (!(await acquireLock())) {
-    return false;
-  }
-
-  try {
-    const state = await NetInfo.fetch();
-    if (!state.isInternetReachable) {
-      throw new Error("No internet connection");
-    }
-
-    const [username, password] = await Promise.all([
-      AsyncStorage.getItem(USERNAME_KEY),
-      AsyncStorage.getItem(PASSWORD_KEY),
-    ]);
-
-    if (!username || !password) {
-      await sendImmediateNotification(
-        "Cập nhật thông tin đăng nhập",
-        "Vui lòng cập nhật thông tin đăng nhập để tiếp tục đồng bộ dữ liệu"
-      );
-      return false;
-    }
-
-    await api_ictu(username, password, "reset");
-
-    const currentDate = new Date();
-    await AsyncStorage.setItem(
-      LAST_UPDATE_KEY,
-      currentDate.toLocaleString("vi-VN")
-    );
-    await AsyncStorage.setItem(LAST_RUN_DATE_KEY, currentDate.toDateString());
-    await sendImmediateNotification(
-      "Đã tự động cập nhật dữ liệu mới",
-      "Hệ thống đã tự động cập nhật dữ liệu lịch học, lịch thi, điểm số mới nhất từ hệ thống ICTU"
-    );
-    return true;
-  } catch (error) {
-    await logError("Lỗi khi chạy API task", error);
-    if (retryCount < MAX_RETRIES) {
-      setTimeout(() => runAPITask(retryCount + 1), RETRY_DELAY);
-    }
-    return false;
-  } finally {
-    await releaseLock();
-  }
-};
-
+// Định nghĩa tác vụ nền
 TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
   try {
-    if (await isTimeToRun()) {
-      const result = await runAPITask();
-      return result
-        ? BackgroundFetch.BackgroundFetchResult.NewData
-        : BackgroundFetch.BackgroundFetchResult.Failed;
-    } else {
+    await logError("INFO", "Bắt đầu tác vụ nền");
+    
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      await logError("INFO", "Không có kết nối internet, bỏ qua tác vụ");
       return BackgroundFetch.BackgroundFetchResult.NoData;
     }
+
+    if (await shouldRunTask()) {
+      await logError("INFO", "Điều kiện thỏa mãn, thực hiện API");
+      const result = await api_ictu(null, null, "reset");
+      if (result) {
+        await AsyncStorage.setItem("lastRunDate", new Date().toDateString());
+        await logError("INFO", "Tác vụ nền hoàn thành thành công");
+        return BackgroundFetch.BackgroundFetchResult.NewData;
+      }
+    } else {
+      await logError("INFO", "Điều kiện chưa thỏa mãn, bỏ qua tác vụ");
+    }
+
+    return BackgroundFetch.BackgroundFetchResult.NoData;
   } catch (error) {
-    await logError("Lỗi trong task chạy ngầm", error);
+    await logError("ERROR", `Lỗi trong tác vụ nền: ${error.message}`);
     return BackgroundFetch.BackgroundFetchResult.Failed;
   }
 });
 
-let isAppStateListenerRegistered = false;
-
-export const registerBackgroundTaskApi = async () => {
+// Hàm đăng ký tác vụ nền
+export const registerBackgroundTask = async () => {
   try {
-    const isRegistered = await TaskManager.isTaskRegisteredAsync(
-      BACKGROUND_FETCH_TASK
-    );
-    if (!isRegistered) {
-      await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
-        minimumInterval: 60 * 15, // 15 phút
-        stopOnTerminate: false,
-        startOnBoot: true,
-      });
-
-      if (!isAppStateListenerRegistered) {
-        AppState.addEventListener("change", handleAppStateChange);
-        isAppStateListenerRegistered = true;
-      }
-    }
+    await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
+      minimumInterval: 60 * 15, // 15 phút
+      stopOnTerminate: false,
+      startOnBoot: true,
+    });
+    await logError("INFO", "Đã đăng ký tác vụ nền thành công");
   } catch (error) {
-    await logError("Lỗi khi đăng ký background task:", error);
+    await logError("ERROR", `Lỗi khi đăng ký tác vụ nền: ${error.message}`);
   }
 };
 
-const handleAppStateChange = async (nextAppState) => {
+// Hàm kiểm tra trạng thái tác vụ nền
+export const checkBackgroundTaskStatus = async () => {
+  const status = await BackgroundFetch.getStatusAsync();
+  await logError("INFO", `Trạng thái tác vụ nền: ${BackgroundFetch.BackgroundFetchStatus[status]}`);
+  return status;
+};
+
+// Hàm này nên được gọi khi ứng dụng khởi động
+export const setupBackgroundTask = async () => {
+  await registerBackgroundTask();
+  await checkBackgroundTaskStatus();
+};
+
+// Thêm listener cho trạng thái ứng dụng
+AppState.addEventListener("change", async (nextAppState) => {
   if (nextAppState === "active") {
-    if (await isTimeToRun()) {
-      await runAPITask();
+    await logError("INFO", "Ứng dụng trở lại trạng thái active");
+    if (await shouldRunTask()) {
+      await api_ictu(null, null, "reset");
     }
   }
-};
-
-export const unregisterBackgroundTask = async () => {
-  try {
-    const isRegistered = await TaskManager.isTaskRegisteredAsync(
-      BACKGROUND_FETCH_TASK
-    );
-    if (isRegistered) {
-      await BackgroundFetch.unregisterTaskAsync(BACKGROUND_FETCH_TASK);
-      if (isAppStateListenerRegistered) {
-        AppState.removeEventListener("change", handleAppStateChange);
-        isAppStateListenerRegistered = false;
-      }
-    }
-  } catch (error) {
-    await logError("Lỗi khi hủy background task:", error);
-  }
-};
-
-export const checkAndDisplayLogs = async () => {
-  try {
-    const logs = await AsyncStorage.getItem(ERROR_LOGS_KEY);
-    return logs ? JSON.parse(logs) : [];
-  } catch (error) {
-    await logError("Lỗi khi đọc logs:", error);
-    return [];
-  }
-};
-
-export const runAPIIfNeeded = async () => {
-  if (await isTimeToRun()) {
-    await runAPITask();
-  }
-};
+});

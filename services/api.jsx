@@ -64,7 +64,7 @@ const formatDateTime = (date) => {
 
 // Định nghĩa các đường dẫn API
 //const url_api = "https://search.quanhd.net/get_tkb"; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
-const url_api = "http://43.228.213.95:5000/get_tkb"; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
+const url_api = "https://api-tkb.quanhd.net/get_tkb"; // API endpoint lấy dữ liệu thời khóa biểu và lịch thi
 const url_checkUpdate = "https://api.quanhd.net/tkb_app.json"; // API endpoint check update
 
 // Hàm gọi API để lấy dữ liệu thời khóa biểu và lịch thi
@@ -271,7 +271,6 @@ export const api_ictu = async (
         Alert.alert("Lỗi", "Không thể lưu dữ liệu: " + error.message);
         await logError("Lỗi khi lưu dữ liệu:", error);
       }
-
       return response.data;
     }
   } catch (error) {

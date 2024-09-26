@@ -10,13 +10,13 @@ import Toast, { BaseToast, ErrorToast } from "react-native-toast-message";
 import { checkForUpdate } from "./components/CheckUpdate";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ModalComponent from "./components/ModalComponent";
+import { scheduleAllNotifications } from "./components/ScheduleNotification";
 import {
   initializeNotifications,
   useNotificationListener,
 } from "./components/LocalNotification";
 import {
-  registerBackgroundTaskApi,
-  runAPIIfNeeded,
+  setupBackgroundTask,
 } from "./components/backgroundTasks";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { logError } from "./components/SaveLogs";
@@ -103,14 +103,23 @@ export default function App() {
     const setupNotification = async () => {
       try {
         await initializeNotifications();
-        await registerBackgroundTaskApi();
-        await runAPIIfNeeded();
+        await setupBackgroundTask();
       } catch (error) {
         Alert.alert("Lỗi", "Không thể khởi tạo thông báo: " + error.message);
         await logError("Lỗi khi khởi tạo thông báo:", error);
       }
     };
     setupNotification();
+  }, []);
+
+  useEffect(() => {
+    const checkAllNotifications = async () => {
+      await scheduleAllNotifications();
+      
+    // const userData_LichThi = await AsyncStorage.getItem("userData_ThoiKhoaBieu");
+    // console.log(userData_LichThi);
+    };
+    checkAllNotifications();
   }, []);
 
   // Lắng nghe thông báo
