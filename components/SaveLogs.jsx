@@ -8,7 +8,7 @@ export const logError = async (message, error) => {
       (await AsyncStorage.getItem(ERROR_LOGS_KEY)) || "[]"
     );
     logs.push({
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString("vi-VN"),
       message,
       error: error ? error.toString() : "undefined error",
     });

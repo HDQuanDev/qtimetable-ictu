@@ -4,6 +4,7 @@ import { Alert } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import LoginScreen from "./screens/LoginScreen";
+import IntroScreen from "./screens/IntroScreen";
 import SwipeableScreens from "./screens/SwipeableScreens";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Toast, { BaseToast, ErrorToast } from "react-native-toast-message";
@@ -15,9 +16,7 @@ import {
   initializeNotifications,
   useNotificationListener,
 } from "./components/LocalNotification";
-import {
-  setupBackgroundTask,
-} from "./components/backgroundTasks";
+import { setupBackgroundTask } from "./components/backgroundTasks";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { logError } from "./components/SaveLogs";
 
@@ -60,9 +59,28 @@ const toastConfig = {
 // Hàm hiển thị thanh điều hướng
 function Navigation() {
   const { isLoggedIn, isLoading } = useAuth();
-  if (isLoading) {
-    return null;
+  const [introCompleted, setIntroCompleted] = useState(null);
+
+  useEffect(() => {
+    const fetchIntroStatus = async () => {
+      try {
+        const intro = await AsyncStorage.getItem("@intro_completed");
+        setIntroCompleted(intro === "true");
+      } catch (error) {
+        console.error("Error fetching intro status:", error);
+      }
+    };
+    fetchIntroStatus();
+  }, []);
+
+  const handleIntroComplete = () => {
+    setIntroCompleted(true);
+  };
+
+  if (isLoading || introCompleted === null) {
+    return null; // Hoặc bạn có thể hiển thị một spinner hoặc màn hình loading
   }
+
   return (
     <Stack.Navigator>
       {isLoggedIn ? (
@@ -71,12 +89,18 @@ function Navigation() {
           component={SwipeableScreens}
           options={{ headerShown: false }}
         />
-      ) : (
+      ) : introCompleted ? (
         <Stack.Screen
           name="Login"
           component={LoginScreen}
           options={{ headerShown: false }}
         />
+      ) : (
+        <Stack.Screen name="Intro" options={{ headerShown: false }}>
+          {(props) => (
+            <IntroScreen {...props} onIntroComplete={handleIntroComplete} />
+          )}
+        </Stack.Screen>
       )}
     </Stack.Navigator>
   );
@@ -115,9 +139,9 @@ export default function App() {
   useEffect(() => {
     const checkAllNotifications = async () => {
       await scheduleAllNotifications();
-      
-    // const userData_LichThi = await AsyncStorage.getItem("userData_ThoiKhoaBieu");
-    // console.log(userData_LichThi);
+
+      // const userData_LichThi = await AsyncStorage.getItem("userData_ThoiKhoaBieu");
+      // console.log(userData_LichThi);
     };
     checkAllNotifications();
   }, []);
