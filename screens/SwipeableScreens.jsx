@@ -1,6 +1,13 @@
 import React, { useEffect } from "react";
-import { View, Text, SafeAreaView, StatusBar, Pressable } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import {
+  View,
+  Text,
+  SafeAreaView,
+  StatusBar,
+  Pressable,
+  TouchableOpacity,
+} from "react-native";
+import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -192,54 +199,53 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 // Hàm hiển thị các Tab
 function SwipeableScreens() {
   const { isDarkMode } = useTheme();
+  const navigation = useNavigation();
   return (
     <SafeAreaView className="flex-1">
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-      <NavigationContainer independent={true}>
-        <Tab.Navigator
-          tabBar={(props) => <CustomTabBar {...props} />}
-          screenOptions={{
-            headerShown: false,
+      <Tab.Navigator
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+        }}
+        initialRouteName="ThoiKhoaBieu"
+      >
+        <Tab.Screen
+          name="Mark"
+          component={WrappedMarkScreen}
+          options={{
+            tabBarLabel: "Bảng Điểm",
           }}
-          initialRouteName="ThoiKhoaBieu"
-        >
-          <Tab.Screen
-            name="Mark"
-            component={WrappedMarkScreen}
-            options={{
-              tabBarLabel: "Bảng Điểm",
-            }}
-          />
-          <Tab.Screen
-            name="ThoiGianHoc"
-            component={WrappedClassScheduleScreen}
-            options={{
-              tabBarLabel: "Thời Gian Biểu",
-            }}
-          />
-          <Tab.Screen
-            name="ThoiKhoaBieu"
-            component={WrappedThoiKhoaBieuScreen}
-            options={{
-              tabBarLabel: "Thời Khoá Biểu",
-            }}
-          />
-          <Tab.Screen
-            name="Profile"
-            component={WrappedProfileScreen}
-            options={{
-              tabBarLabel: "Trang Cá Nhân",
-            }}
-          />
-          <Tab.Screen
-            name="Settings"
-            component={WrappedMenuScreen}
-            options={{
-              tabBarLabel: "Cài Đặt",
-            }}
-          />
-        </Tab.Navigator>
-      </NavigationContainer>
+        />
+        <Tab.Screen
+          name="ThoiGianHoc"
+          component={WrappedClassScheduleScreen}
+          options={{
+            tabBarLabel: "Thời Gian Biểu",
+          }}
+        />
+        <Tab.Screen
+          name="ThoiKhoaBieu"
+          component={WrappedThoiKhoaBieuScreen}
+          options={{
+            tabBarLabel: "Thời Khoá Biểu",
+          }}
+        />
+        <Tab.Screen
+          name="Profile"
+          component={WrappedProfileScreen}
+          options={{
+            tabBarLabel: "Trang Cá Nhân",
+          }}
+        />
+        <Tab.Screen
+          name="Settings"
+          component={WrappedMenuScreen}
+          options={{
+            tabBarLabel: "Cài Đặt",
+          }}
+        />
+      </Tab.Navigator>
     </SafeAreaView>
   );
 }

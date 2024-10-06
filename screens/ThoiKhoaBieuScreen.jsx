@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -106,7 +107,45 @@ export default function ThoiKhoaBieuScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   const { isDarkMode } = useTheme();
+  const navigation = useNavigation();
+  const [userNotes, setUserNotes] = useState([]);
+  const [selectedNote, setSelectedNote] = useState(null);
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
 
+  const handleAddNote = () => {
+    const parentNavigation = navigation.getParent();
+    if (parentNavigation) {
+      parentNavigation.navigate("AddNote");
+    } else {
+      console.warn("Không thể tìm thấy navigation cha");
+    }
+  };
+
+  // Hàm để lấy số lượng ghi chú cho một ngày cụ thể
+  const getNumberOfNotesForDay = useCallback(
+    (date) => {
+      return userNotes.filter((note) => note.date.split("T")[0] === date)
+        .length;
+    },
+    [userNotes]
+  );
+
+  const fetchNotes = async () => {
+    try {
+      const notesData = await AsyncStorage.getItem("userGhiChu");
+      if (notesData) {
+        setUserNotes(JSON.parse(notesData));
+      }
+    } catch (error) {
+      console.error("Error fetching notes:", error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotes();
+    }, [])
+  );
   // Hàm xử lý dữ liệu khi mở ứng dụng
   useEffect(() => {
     const fetchData = async () => {
@@ -114,6 +153,7 @@ export default function ThoiKhoaBieuScreen() {
       await fetchExamData();
       await fetchUserInfo();
       await fetchTimeUpdate();
+      await fetchNotes();
       const today = new Date();
       today.setHours(today.getHours() + 7);
       const todayDateString = today.toISOString().split("T")[0];
@@ -305,6 +345,7 @@ export default function ThoiKhoaBieuScreen() {
         await fetchExamData();
         await fetchUserInfo();
         await fetchTimeUpdate();
+        await fetchNotes();
         setNotification(true);
       } else {
         Alert.alert("Lỗi", "Không có kết nối mạng, không thể cập nhật!");
@@ -563,7 +604,7 @@ export default function ThoiKhoaBieuScreen() {
           [selectedDate]: {
             selected: true,
             disableTouchEvent: true,
-            selectedColor: isDarkMode ? "#3B82F6" : "#2563EB", // Màu xanh dịu mắt
+            selectedColor: isDarkMode ? "#3B82F6" : "#2563EB",
             selectedTextColor: "#FFFFFF",
           },
           ...examData.reduce((acc, exam) => {
@@ -571,8 +612,17 @@ export default function ThoiKhoaBieuScreen() {
             acc[examDate] = {
               ...acc[examDate],
               marked: true,
-              dotColor: "#FDBA74", // Màu cam dịu mắt
+              dotColor: "#FDBA74",
               activeOpacity: 0.8,
+            };
+            return acc;
+          }, {}),
+          ...userNotes.reduce((acc, note) => {
+            const noteDate = note.date.split("T")[0];
+            acc[noteDate] = {
+              ...acc[noteDate],
+              marked: true,
+              dotColor: "#f97316",
             };
             return acc;
           }, {}),
@@ -693,6 +743,22 @@ export default function ThoiKhoaBieuScreen() {
                     }}
                   />
                 ))}
+                {[
+                  ...Array(
+                    Math.min(3, getNumberOfNotesForDay(date.dateString))
+                  ),
+                ].map((_, i) => (
+                  <View
+                    key={`note-${i}`}
+                    style={{
+                      width: 6,
+                      height: 6,
+                      backgroundColor: "#F59E0B",
+                      borderRadius: 3,
+                      marginHorizontal: 1,
+                    }}
+                  />
+                ))}
               </View>
             </TouchableOpacity>
           );
@@ -707,7 +773,96 @@ export default function ThoiKhoaBieuScreen() {
       examData,
       convertDateFormat,
       isDarkMode,
+      userNotes,
     ]
+  );
+
+  // Hàm render ghi chú
+
+  const renderNoteItem = useCallback(
+    ({ item, isDarkMode }) => {
+      const formatTime = (dateString) => {
+        const date = new Date(dateString);
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
+        return `${hours}:${minutes}`;
+      };
+
+      const formattedTime = formatTime(item.date);
+
+      return (
+        <TouchableOpacity
+          onPress={() => {
+            setSelectedNote(item);
+            setNoteModalVisible(true);
+          }}
+          className="mb-4"
+        >
+          <LinearGradient
+            colors={
+              isDarkMode ? ["#2c3e50", "#34495e"] : ["#e0f2f1", "#b2dfdb"]
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className={`p-4 rounded-3xl shadow-md ${
+              isDarkMode ? "dark:shadow-lg dark:bg-gray-800" : "bg-white"
+            } ${
+              isDarkMode
+                ? "dark:border-2 dark:border-teal-300"
+                : "border-2 border-teal-200"
+            }`}
+          >
+            <View className="flex-row justify-between items-center mb-3">
+              <View
+                className={`px-3 py-1 rounded-full ${
+                  isDarkMode ? "bg-teal-700" : "bg-teal-400"
+                }`}
+              >
+                <Text
+                  className={`font-semibold text-xs ${
+                    isDarkMode ? "text-gray-200" : "text-white"
+                  }`}
+                >
+                  Ghi chú
+                </Text>
+              </View>
+              <View
+                className={`px-3 py-1 rounded-full ${
+                  isDarkMode ? "bg-gray-600" : "bg-gray-200"
+                }`}
+              >
+                <Text
+                  className={`text-sm font-medium ${
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  }`}
+                >
+                  {formattedTime}
+                </Text>
+              </View>
+            </View>
+            <Text
+              className={`text-xl font-bold mb-2 leading-tight ${
+                isDarkMode ? "text-gray-200" : "text-gray-800"
+              }`}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
+              {item.title}
+            </Text>
+            <Text
+              className={`text-sm ${
+                isDarkMode ? "text-gray-300" : "text-gray-600"
+              }`}
+              numberOfLines={3}
+              ellipsizeMode="tail"
+            >
+              {item.content}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      );
+    },
+    [setSelectedNote, setNoteModalVisible]
   );
 
   // Hàm render mục ngày trong tuần
@@ -799,6 +954,14 @@ export default function ThoiKhoaBieuScreen() {
                 className="w-1 h-1 bg-red-500 rounded-full mx-0.5" // Màu đỏ dịu mắt hơn
               />
             ))}
+            {[
+              ...Array(Math.min(2, getNumberOfNotesForDay(day.dateString))),
+            ].map((_, i) => (
+              <View
+                key={`note-${i}`}
+                className="w-1 h-1 bg-orange-500 rounded-full mx-0.5"
+              />
+            ))}
           </View>
         </TouchableOpacity>
       );
@@ -808,6 +971,7 @@ export default function ThoiKhoaBieuScreen() {
       handleDayPress,
       getNumberOfClassesForDay,
       getNumberOfExamsForDay,
+      getNumberOfNotesForDay,
     ]
   ); // Thêm isDarkMode vào dependency array
 
@@ -898,13 +1062,21 @@ export default function ThoiKhoaBieuScreen() {
               {calendarExpanded && memoizedCalendar}
             </View>
             <FlatList
-              data={[...getScheduleForDate(), ...getExamsForDate()]}
+              data={[
+                ...getScheduleForDate(),
+                ...getExamsForDate(),
+                ...userNotes.filter(
+                  (note) => note.date.split("T")[0] === selectedDate
+                ),
+              ]}
               renderItem={({ item }) =>
                 item.ca_thi
                   ? renderExamItem({ item, isDarkMode })
+                  : item.content
+                  ? renderNoteItem({ item, isDarkMode })
                   : renderClassItem({ item, isDarkMode })
               }
-              keyExtractor={(item, index) => `${item.STT}-${index}`}
+              keyExtractor={(item, index) => `${item.id || item.STT}-${index}`}
               ListEmptyComponent={
                 <View
                   className={`p-6 rounded-3xl shadow-md ${
@@ -920,7 +1092,7 @@ export default function ThoiKhoaBieuScreen() {
                       isDarkMode ? "text-gray-200" : "text-gray-800"
                     }`}
                   >
-                    Không có lớp học hoặc lịch thi nào trong ngày này.
+                    Không có lớp học, lịch thi hoặc ghi chú nào trong ngày này.
                   </Text>
                   <Text
                     className={`text-center italic mt-3 text-base ${
@@ -928,13 +1100,86 @@ export default function ThoiKhoaBieuScreen() {
                     }`}
                   >
                     Bạn có thể vuốt sang trái hoặc phải để xem lịch của các ngày
-                    khác.
+                    khác hoặc nhấn vào dấu + để thêm ghi chú.
                   </Text>
                 </View>
               }
             />
+            <TouchableOpacity
+              onPress={handleAddNote}
+              className={`absolute bottom-4 right-4 p-4 rounded-full ${
+                isDarkMode ? "bg-blue-500" : "bg-blue-600"
+              }`}
+            >
+              <Ionicons name="add" size={24} color="white" />
+            </TouchableOpacity>
           </View>
         </PanGestureHandler>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={noteModalVisible}
+          onRequestClose={() => setNoteModalVisible(false)}
+        >
+          <View
+            className="flex-1 justify-center items-center bg-opacity-25 block"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.6)" }}
+          >
+            <LinearGradient
+              colors={
+                isDarkMode ? ["#2c3e50", "#34495e"] : ["#e0f2f1", "#b2dfdb"]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              className={`p-4 rounded-3xl shadow-md ${
+                isDarkMode ? "dark:shadow-lg dark:bg-gray-800" : "bg-white"
+              } ${
+                isDarkMode
+                  ? "dark:border-2 dark:border-teal-300"
+                  : "border-2 border-teal-200"
+              }`}
+            >
+              <View className="rounded-lg p-6 w-11/12 max-h-5/6">
+                <ScrollView>
+                  {selectedNote && (
+                    <>
+                      <Text
+                        className={`text-center text-2xl font-bold mb-4 ${
+                          isDarkMode ? "text-teal-300" : "text-teal-600"
+                        }`}
+                      >
+                        {selectedNote.title}
+                      </Text>
+                      <Text
+                        className={`text-lg mb-4 ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
+                        {selectedNote.content}
+                      </Text>
+                      <Text
+                        className={`text-sm ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Ngày: {new Date(selectedNote.date).toLocaleDateString()}{" "}
+                        Giờ: {new Date(selectedNote.date).toLocaleTimeString()}
+                      </Text>
+                    </>
+                  )}
+                </ScrollView>
+                <TouchableOpacity
+                  onPress={() => setNoteModalVisible(false)}
+                  className={`py-2 px-4 rounded-full mt-4 ${
+                    isDarkMode ? "bg-teal-700" : "bg-teal-500"
+                  }`}
+                >
+                  <Text className="text-white text-center font-bold">Đóng</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        </Modal>
         <Modal
           animationType="slide"
           transparent={true}

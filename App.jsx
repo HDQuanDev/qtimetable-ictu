@@ -6,6 +6,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import LoginScreen from "./screens/LoginScreen";
 import IntroScreen from "./screens/IntroScreen";
 import SwipeableScreens from "./screens/SwipeableScreens";
+import AddNoteScreen from "./screens/AddNoteScreen";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Toast, { BaseToast, ErrorToast } from "react-native-toast-message";
 import { checkForUpdate } from "./components/CheckUpdate";
@@ -84,11 +85,20 @@ function Navigation() {
   return (
     <Stack.Navigator>
       {isLoggedIn ? (
-        <Stack.Screen
-          name="MainContent"
-          component={SwipeableScreens}
-          options={{ headerShown: false }}
-        />
+        <>
+          <Stack.Screen
+            name="MainContent"
+            component={SwipeableScreens}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AddNote"
+            component={AddNoteScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+        </>
       ) : introCompleted ? (
         <Stack.Screen
           name="Login"

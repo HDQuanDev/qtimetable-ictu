@@ -6,8 +6,9 @@ import {
   ScrollView,
   Platform,
   Linking,
-  Dimensions,
   useWindowDimensions,
+  Alert,
+  Clipboard,
 } from "react-native";
 import { useTheme } from "../components/ThemeProvider";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { getUserKey } from "../components/firestore";
 
 const IntroScreen = ({ onIntroComplete }) => {
   const { isDarkMode } = useTheme();
@@ -24,16 +26,28 @@ const IntroScreen = ({ onIntroComplete }) => {
   const [notificationPermission, setNotificationPermission] = useState(false);
   const [batteryOptimizationChecked, setBatteryOptimizationChecked] =
     useState(false);
+  const [userKey, setUserKey] = useState("");
+  const [keyCopiedisCopied, setKeyCopiedisCopied] = useState(false);
   const navigation = useNavigation();
   const scrollViewRef = useRef(null);
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
-  const totalPages = 7;
+  const totalPages = 8;
 
   useEffect(() => {
     checkNotificationPermission();
     checkIntroCompleted();
     checkBatteryOptimization();
+    fetchUserKey();
   }, []);
+
+  const fetchUserKey = async () => {
+    try {
+      const key = await getUserKey();
+      setUserKey(key);
+    } catch (error) {
+      console.error("Error fetching user key:", error);
+    }
+  };
 
   const checkIntroCompleted = async () => {
     try {
@@ -70,6 +84,12 @@ const IntroScreen = ({ onIntroComplete }) => {
     await AsyncStorage.setItem("@battery_optimization_checked", "true");
     setBatteryOptimizationChecked(true);
     Linking.openSettings();
+  };
+
+  const copyToClipboard = () => {
+    Clipboard.setString(userKey);
+    setKeyCopiedisCopied(true);
+    Alert.alert("Thành công", "Đã sao chép khoá P2P vào bộ nhớ tạm");
   };
 
   const introPages = [
@@ -130,6 +150,12 @@ const IntroScreen = ({ onIntroComplete }) => {
         : "Mở cài đặt ứng dụng",
       colors: isDarkMode ? ["#4338CA", "#4F46E5"] : ["#6366F1", "#4F46E5"],
     },
+    {
+      title: "Khoá P2P của bạn",
+      content: "Đây là khoá P2P của bạn. Vui lòng sao chép và lưu trữ nó an toàn để khôi phục dữ liệu sau này.",
+      icon: "key-outline",
+      colors: isDarkMode ? ["#4C1D95", "#5B21B6"] : ["#8B5CF6", "#7C3AED"],
+    },
   ];
 
   const renderPage = (page, index) => (
@@ -138,84 +164,182 @@ const IntroScreen = ({ onIntroComplete }) => {
       colors={page.colors}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      className="flex-1 items-center justify-center px-6"
-      style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}
+      style={{
+        flex: 1,
+        width: SCREEN_WIDTH,
+        height: SCREEN_HEIGHT,
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 20,
+      }}
     >
-      <View className="items-center justify-center w-full max-w-md">
+      <View style={{ maxWidth: 400, width: "100%", alignItems: "center" }}>
         <View
-          className={`rounded-full p-6 mb-8 ${
-            isDarkMode ? "bg-gray-800" : "bg-white"
-          } bg-opacity-20`}
+          style={{
+            backgroundColor: isDarkMode
+              ? "rgba(31, 41, 55, 0.8)"
+              : "rgba(255, 255, 255, 0.8)",
+            borderRadius: 50,
+            padding: 20,
+            marginBottom: 30,
+          }}
         >
           <Ionicons
             name={page.icon}
-            size={80}
+            size={60}
             color={isDarkMode ? "white" : "black"}
           />
         </View>
         <Text
-          className={`text-3xl md:text-4xl font-bold mb-6 text-center ${
-            isDarkMode ? "text-white" : "text-gray-900"
-          }`}
+          style={{
+            fontSize: 28,
+            fontWeight: "bold",
+            marginBottom: 20,
+            textAlign: "center",
+            color: isDarkMode ? "white" : "black",
+          }}
         >
           {page.title}
         </Text>
         <Text
-          className={`text-center mb-8 text-lg md:text-xl ${
-            isDarkMode ? "text-gray-300" : "text-gray-700"
-          }`}
+          style={{
+            fontSize: 16,
+            textAlign: "center",
+            marginBottom: 30,
+            color: isDarkMode
+              ? "rgba(255, 255, 255, 0.8)"
+              : "rgba(0, 0, 0, 0.8)",
+          }}
         >
           {page.content}
         </Text>
-        {page.permission !== undefined && (
-          <TouchableOpacity
-            onPress={page.requestPermission}
-            className={`px-8 py-4 rounded-full ${
-              isDarkMode ? "bg-gray-800" : "bg-white"
-            } ${page.permission ? "opacity-75" : ""}`}
-            disabled={page.permission}
-          >
-            <Text
-              className={`font-bold text-xl ${
-                page.permission
-                  ? isDarkMode
-                    ? "text-green-400"
-                    : "text-green-600"
-                  : isDarkMode
-                  ? "text-blue-400"
-                  : "text-blue-600"
-              }`}
-            >
-              {page.permission ? "Đã cho phép" : "Cho phép"}
-            </Text>
-          </TouchableOpacity>
-        )}
-        {page.action && (
-          <TouchableOpacity
-            onPress={page.action}
-            className={`px-8 py-4 rounded-full mt-4 ${
-              isDarkMode ? "bg-gray-800" : "bg-white"
-            } ${batteryOptimizationChecked ? "opacity-75" : ""}`}
-            disabled={batteryOptimizationChecked}
-          >
-            <Text
-              className={`font-bold text-xl ${
-                batteryOptimizationChecked
-                  ? isDarkMode
-                    ? "text-green-400"
-                    : "text-green-600"
-                  : isDarkMode
-                  ? "text-blue-400"
-                  : "text-blue-600"
-              }`}
-            >
-              {page.actionText}
-            </Text>
-          </TouchableOpacity>
-        )}
+        {renderPageActions(page, index)}
       </View>
     </LinearGradient>
   );
+
+  const renderPageActions = (page, index) => {
+    if (page.permission !== undefined) {
+      return (
+        <TouchableOpacity
+          onPress={page.requestPermission}
+          style={{
+            backgroundColor: isDarkMode ? "rgba(31, 41, 55, 0.8)" : "white",
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+            borderRadius: 25,
+            opacity: page.permission ? 0.75 : 1,
+          }}
+          disabled={page.permission}
+        >
+          <Text
+            style={{
+              fontWeight: "bold",
+              fontSize: 18,
+              color: page.permission
+                ? isDarkMode
+                  ? "#34D399"
+                  : "#059669"
+                : isDarkMode
+                ? "#60A5FA"
+                : "#2563EB",
+            }}
+          >
+            {page.permission ? "Đã cho phép" : "Cho phép"}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if (page.action) {
+      return (
+        <TouchableOpacity
+          onPress={page.action}
+          style={{
+            backgroundColor: isDarkMode ? "rgba(31, 41, 55, 0.8)" : "white",
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+            borderRadius: 25,
+            opacity: batteryOptimizationChecked ? 0.75 : 1,
+          }}
+          disabled={batteryOptimizationChecked}
+        >
+          <Text
+            style={{
+              fontWeight: "bold",
+              fontSize: 18,
+              color: batteryOptimizationChecked
+                ? isDarkMode
+                  ? "#34D399"
+                  : "#059669"
+                : isDarkMode
+                ? "#60A5FA"
+                : "#2563EB",
+            }}
+          >
+            {page.actionText}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if (index === totalPages - 1) {
+      return (
+        <View style={{ alignItems: "center" }}>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "bold",
+              marginBottom: 10,
+              color: isDarkMode ? "white" : "black",
+            }}
+          >
+            Khoá P2P của bạn:
+          </Text>
+          <View
+            style={{
+              backgroundColor: isDarkMode
+                ? "rgba(31, 41, 55, 0.8)"
+                : "rgba(243, 244, 246, 0.8)",
+              padding: 15,
+              borderRadius: 10,
+              marginBottom: 20,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                textAlign: "center",
+                color: isDarkMode
+                  ? "rgba(255, 255, 255, 0.8)"
+                  : "rgba(0, 0, 0, 0.8)",
+              }}
+              selectable={true}
+            >
+              {userKey || "Đang tải..."}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={copyToClipboard}
+            style={{
+              backgroundColor: isDarkMode ? "#4F46E5" : "#4338CA",
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 25,
+              opacity: keyCopiedisCopied ? 0.75 : 1,
+            }}
+            disabled={keyCopiedisCopied}
+          >
+            <Text style={{ fontWeight: "bold", fontSize: 18, color: "white" }}>
+              {keyCopiedisCopied ? "Đã sao chép" : "Sao chép khoá"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return null;
+  };
 
   const handleScroll = (event) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -233,11 +357,17 @@ const IntroScreen = ({ onIntroComplete }) => {
         animated: true,
       });
     } else {
-      if (batteryOptimizationChecked) {
+      if (batteryOptimizationChecked && keyCopiedisCopied) {
         completeIntro();
-      } else {
-        alert(
+      } else if (!batteryOptimizationChecked) {
+        Alert.alert(
+          "Cài đặt chưa hoàn tất",
           "Vui lòng mở cài đặt ứng dụng và tắt tối ưu hóa pin trước khi tiếp tục."
+        );
+      } else if (!keyCopiedisCopied) {
+        Alert.alert(
+          "Chưa sao chép khoá P2P",
+          "Vui lòng sao chép khoá P2P trước khi tiếp tục."
         );
       }
     }
@@ -262,8 +392,94 @@ const IntroScreen = ({ onIntroComplete }) => {
     }
   };
 
+  const renderNavigationDots = () => (
+    <View
+      style={{
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      {[...Array(totalPages)].map((_, index) => (
+        <View
+          key={index}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            marginHorizontal: 4,
+            backgroundColor:
+              index === currentPage
+                ? isDarkMode
+                  ? "white"
+                  : "black"
+                : isDarkMode
+                ? "rgba(156, 163, 175, 0.5)"
+                : "rgba(107, 114, 128, 0.5)",
+          }}
+        />
+      ))}
+    </View>
+  );
+
+  const renderNavigationButtons = () => (
+    <View
+      style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+      }}
+    >
+      <TouchableOpacity
+        onPress={prevPage}
+        disabled={currentPage === 0}
+        style={{
+          opacity: currentPage === 0 ? 0.5 : 1,
+          padding: 10,
+        }}
+      >
+        <Ionicons
+          name="chevron-back"
+          size={28}
+          color={isDarkMode ? "white" : introPages[currentPage].colors[0]}
+        />
+      </TouchableOpacity>
+
+      {renderNavigationDots()}
+
+      <TouchableOpacity
+        onPress={nextPage}
+        style={{
+          padding: 10,
+        }}
+      >
+        {currentPage === totalPages - 1 ? (
+          <Text
+            style={{
+              fontWeight: "bold",
+              fontSize: 18,
+              color: isDarkMode ? "white" : "black",
+            }}
+          >
+            {keyCopiedisCopied ? "Hoàn tất" : "Sao chép"}
+          </Text>
+        ) : (
+          <Ionicons
+            name="chevron-forward"
+            size={28}
+            color={isDarkMode ? "white" : introPages[currentPage].colors[0]}
+          />
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <SafeAreaView className="flex-1">
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: isDarkMode ? "#111827" : "#F3F4F6" }}
+    >
       <StatusBar style={isDarkMode ? "light" : "dark"} />
       <ScrollView
         ref={scrollViewRef}
@@ -271,66 +487,14 @@ const IntroScreen = ({ onIntroComplete }) => {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScroll}
+        scrollEventThrottle={16}
+        decelerationRate="fast"
+        style={{ flex: 1 }}
         contentContainerStyle={{ width: SCREEN_WIDTH * totalPages }}
       >
         {introPages.map(renderPage)}
       </ScrollView>
-
-      <View className="absolute bottom-0 left-0 right-0 flex-row justify-between items-center px-6 py-8">
-        <TouchableOpacity
-          onPress={prevPage}
-          disabled={currentPage === 0}
-          className={`p-3 rounded-full ${
-            currentPage === 0 ? "opacity-50" : ""
-          } ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={28}
-            color={isDarkMode ? "white" : introPages[currentPage].colors[0]}
-          />
-        </TouchableOpacity>
-
-        <View className="flex-row space-x-3">
-          {[...Array(totalPages)].map((_, index) => (
-            <View
-              key={index}
-              className={`w-3 h-3 rounded-full ${
-                index === currentPage
-                  ? isDarkMode
-                    ? "bg-white"
-                    : "bg-gray-900"
-                  : isDarkMode
-                  ? "bg-gray-600"
-                  : "bg-gray-300"
-              }`}
-            />
-          ))}
-        </View>
-
-        <TouchableOpacity
-          onPress={nextPage}
-          className={`p-3 rounded-full ${
-            isDarkMode ? "bg-gray-800" : "bg-white"
-          }`}
-        >
-          {currentPage === totalPages - 1 ? (
-            <Text
-              className={`font-bold text-xl px-4 py-2 ${
-                isDarkMode ? "text-white" : "text-gray-900"
-              }`}
-            >
-              Bắt đầu
-            </Text>
-          ) : (
-            <Ionicons
-              name="chevron-forward"
-              size={28}
-              color={isDarkMode ? "white" : introPages[currentPage].colors[0]}
-            />
-          )}
-        </TouchableOpacity>
-      </View>
+      {renderNavigationButtons()}
     </SafeAreaView>
   );
 };
