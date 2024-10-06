@@ -597,173 +597,175 @@ export default function ThoiKhoaBieuScreen() {
   // Hàm render mục ngày trong tuần
   const memoizedCalendar = useMemo(
     () => (
-      <Calendar
-        allowLunarDates={true}
-        onDayPress={handleDayPress}
-        markedDates={{
-          [selectedDate]: {
-            selected: true,
-            disableTouchEvent: true,
-            selectedColor: isDarkMode ? "#3B82F6" : "#2563EB",
-            selectedTextColor: "#FFFFFF",
-          },
-          ...examData.reduce((acc, exam) => {
-            const examDate = convertDateFormat(exam.ngay_thi);
-            acc[examDate] = {
-              ...acc[examDate],
-              marked: true,
-              dotColor: "#FDBA74",
-              activeOpacity: 0.8,
-            };
-            return acc;
-          }, {}),
-          ...userNotes.reduce((acc, note) => {
-            const noteDate = note.date.split("T")[0];
-            acc[noteDate] = {
-              ...acc[noteDate],
-              marked: true,
-              dotColor: "#f97316",
-            };
-            return acc;
-          }, {}),
-        }}
-        firstDay={1}
-        style={{
-          borderWidth: 1,
-          borderColor: isDarkMode ? "#6B7280" : "#E5E7EB", // Màu border dịu mắt
-          borderRadius: 10,
-          marginTop: 10,
-          padding: 15,
-        }}
-        theme={{
-          backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF", // Màu nền dịu mắt
-          calendarBackground: isDarkMode ? "#1F2937" : "#FFFFFF",
-          textSectionTitleColor: isDarkMode ? "#94A3B8" : "#4B5563", // Màu tiêu đề dịu mắt
-          monthTextColor: isDarkMode ? "#F9FAFB" : "#1F2937", // Màu tháng dịu mắt
-          arrowColor: isDarkMode ? "#93C5FD" : "#2563EB", // Màu mũi tên dịu mắt
-          todayTextColor: isDarkMode ? "#60A5FA" : "#3B82F6", // Màu hôm nay dịu mắt
-          dayTextColor: isDarkMode ? "#F3F4F6" : "#374151", // Màu ngày dịu mắt
-          textDisabledColor: isDarkMode ? "#6B7280" : "#9CA3AF", // Màu ngày bị vô hiệu hóa dịu mắt
-          selectedDayBackgroundColor: isDarkMode ? "#3B82F6" : "#2563EB", // Màu ngày được chọn dịu mắt
-          selectedDayTextColor: "#FFFFFF",
-          dotColor: "#FDBA74", // Màu chấm dịu mắt
-          selectedDotColor: "#FFFFFF",
-        }}
-        dayComponent={({ date, state }) => {
-          const dateParts = date.dateString.split("-");
-          const solarDate = new Date(
-            `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}T00:00:00Z`
-          );
-          const lunar_Date = new SolarDate(new Date(solarDate));
-          const lunarDate = lunar_Date.toLunarDate();
+      <ScrollView>
+        <Calendar
+          allowLunarDates={true}
+          onDayPress={handleDayPress}
+          markedDates={{
+            [selectedDate]: {
+              selected: true,
+              disableTouchEvent: true,
+              selectedColor: isDarkMode ? "#3B82F6" : "#2563EB",
+              selectedTextColor: "#FFFFFF",
+            },
+            ...examData.reduce((acc, exam) => {
+              const examDate = convertDateFormat(exam.ngay_thi);
+              acc[examDate] = {
+                ...acc[examDate],
+                marked: true,
+                dotColor: "#FDBA74",
+                activeOpacity: 0.8,
+              };
+              return acc;
+            }, {}),
+            ...userNotes.reduce((acc, note) => {
+              const noteDate = note.date.split("T")[0];
+              acc[noteDate] = {
+                ...acc[noteDate],
+                marked: true,
+                dotColor: "#f97316",
+              };
+              return acc;
+            }, {}),
+          }}
+          firstDay={1}
+          style={{
+            borderWidth: 1,
+            borderColor: isDarkMode ? "#6B7280" : "#E5E7EB", // Màu border dịu mắt
+            borderRadius: 10,
+            marginTop: 10,
+            padding: 15,
+          }}
+          theme={{
+            backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF", // Màu nền dịu mắt
+            calendarBackground: isDarkMode ? "#1F2937" : "#FFFFFF",
+            textSectionTitleColor: isDarkMode ? "#94A3B8" : "#4B5563", // Màu tiêu đề dịu mắt
+            monthTextColor: isDarkMode ? "#F9FAFB" : "#1F2937", // Màu tháng dịu mắt
+            arrowColor: isDarkMode ? "#93C5FD" : "#2563EB", // Màu mũi tên dịu mắt
+            todayTextColor: isDarkMode ? "#60A5FA" : "#3B82F6", // Màu hôm nay dịu mắt
+            dayTextColor: isDarkMode ? "#F3F4F6" : "#374151", // Màu ngày dịu mắt
+            textDisabledColor: isDarkMode ? "#6B7280" : "#9CA3AF", // Màu ngày bị vô hiệu hóa dịu mắt
+            selectedDayBackgroundColor: isDarkMode ? "#3B82F6" : "#2563EB", // Màu ngày được chọn dịu mắt
+            selectedDayTextColor: "#FFFFFF",
+            dotColor: "#FDBA74", // Màu chấm dịu mắt
+            selectedDotColor: "#FFFFFF",
+          }}
+          dayComponent={({ date, state }) => {
+            const dateParts = date.dateString.split("-");
+            const solarDate = new Date(
+              `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}T00:00:00Z`
+            );
+            const lunar_Date = new SolarDate(new Date(solarDate));
+            const lunarDate = lunar_Date.toLunarDate();
 
-          return (
-            <TouchableOpacity
-              onPress={() => handleDayPress(date)}
-              style={{
-                width: 40,
-                height: 40,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 20,
-                backgroundColor:
-                  selectedDate === date.dateString
-                    ? isDarkMode
-                      ? "#3B82F6"
-                      : "#2563EB" // Màu nền ngày được chọn dịu mắt
-                    : state === "today"
-                    ? isDarkMode
-                      ? "#3B82F620"
-                      : "#2563EB20" // Màu nền hôm nay dịu mắt
-                    : "transparent",
-              }}
-            >
-              <Text
+            return (
+              <TouchableOpacity
+                onPress={() => handleDayPress(date)}
                 style={{
-                  fontSize: 16,
-                  fontWeight: state === "today" ? "bold" : "normal",
-                  color:
-                    selectedDate === date.dateString
-                      ? "#FFFFFF"
-                      : state === "disabled"
-                      ? isDarkMode
-                        ? "#6B7280"
-                        : "#9CA3AF" // Màu chữ ngày bị vô hiệu hóa dịu mắt
-                      : isDarkMode
-                      ? "#D1D5DB"
-                      : "#374151", // Màu chữ ngày dịu mắt
-                }}
-              >
-                {date.day}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 10,
-                  color: isDarkMode ? "#9CA3AF" : "#9CA3AF",
-                }}
-              >
-                {lunarDate.day}/{lunarDate.month}
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
+                  width: 40,
+                  height: 40,
+                  alignItems: "center",
                   justifyContent: "center",
-                  marginTop: 4,
+                  borderRadius: 20,
+                  backgroundColor:
+                    selectedDate === date.dateString
+                      ? isDarkMode
+                        ? "#3B82F6"
+                        : "#2563EB" // Màu nền ngày được chọn dịu mắt
+                      : state === "today"
+                      ? isDarkMode
+                        ? "#3B82F620"
+                        : "#2563EB20" // Màu nền hôm nay dịu mắt
+                      : "transparent",
                 }}
               >
-                {[
-                  ...Array(
-                    Math.min(3, getNumberOfClassesForDay(date.dateString))
-                  ),
-                ].map((_, i) => (
-                  <View
-                    key={`class-${i}`}
-                    style={{
-                      width: 6,
-                      height: 6,
-                      backgroundColor: "#10B981",
-                      borderRadius: 3,
-                      marginHorizontal: 1,
-                    }}
-                  />
-                ))}
-                {[
-                  ...Array(
-                    Math.min(3, getNumberOfExamsForDay(date.dateString))
-                  ),
-                ].map((_, i) => (
-                  <View
-                    key={`exam-${i}`}
-                    style={{
-                      width: 6,
-                      height: 6,
-                      backgroundColor: "#EF4444",
-                      borderRadius: 3,
-                      marginHorizontal: 1,
-                    }}
-                  />
-                ))}
-                {[
-                  ...Array(
-                    Math.min(3, getNumberOfNotesForDay(date.dateString))
-                  ),
-                ].map((_, i) => (
-                  <View
-                    key={`note-${i}`}
-                    style={{
-                      width: 6,
-                      height: 6,
-                      backgroundColor: "#F59E0B",
-                      borderRadius: 3,
-                      marginHorizontal: 1,
-                    }}
-                  />
-                ))}
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-      />
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: state === "today" ? "bold" : "normal",
+                    color:
+                      selectedDate === date.dateString
+                        ? "#FFFFFF"
+                        : state === "disabled"
+                        ? isDarkMode
+                          ? "#6B7280"
+                          : "#9CA3AF" // Màu chữ ngày bị vô hiệu hóa dịu mắt
+                        : isDarkMode
+                        ? "#D1D5DB"
+                        : "#374151", // Màu chữ ngày dịu mắt
+                  }}
+                >
+                  {date.day}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    color: isDarkMode ? "#9CA3AF" : "#9CA3AF",
+                  }}
+                >
+                  {lunarDate.day}/{lunarDate.month}
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    marginTop: 4,
+                  }}
+                >
+                  {[
+                    ...Array(
+                      Math.min(3, getNumberOfClassesForDay(date.dateString))
+                    ),
+                  ].map((_, i) => (
+                    <View
+                      key={`class-${i}`}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        backgroundColor: "#10B981",
+                        borderRadius: 3,
+                        marginHorizontal: 1,
+                      }}
+                    />
+                  ))}
+                  {[
+                    ...Array(
+                      Math.min(3, getNumberOfExamsForDay(date.dateString))
+                    ),
+                  ].map((_, i) => (
+                    <View
+                      key={`exam-${i}`}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        backgroundColor: "#EF4444",
+                        borderRadius: 3,
+                        marginHorizontal: 1,
+                      }}
+                    />
+                  ))}
+                  {[
+                    ...Array(
+                      Math.min(3, getNumberOfNotesForDay(date.dateString))
+                    ),
+                  ].map((_, i) => (
+                    <View
+                      key={`note-${i}`}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        backgroundColor: "#F59E0B",
+                        borderRadius: 3,
+                        marginHorizontal: 1,
+                      }}
+                    />
+                  ))}
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </ScrollView>
     ),
     [
       selectedDate,
