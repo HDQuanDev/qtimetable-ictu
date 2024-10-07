@@ -112,12 +112,29 @@ export default function ThoiKhoaBieuScreen() {
   const [selectedNote, setSelectedNote] = useState(null);
   const [noteModalVisible, setNoteModalVisible] = useState(false);
 
+  //hàm xử lý thêm ghi chú
   const handleAddNote = () => {
     const parentNavigation = navigation.getParent();
     if (parentNavigation) {
       parentNavigation.navigate("AddNote");
     } else {
       console.warn("Không thể tìm thấy navigation cha");
+    }
+  };
+
+  //hàm xử lý xóa ghi chú
+  const handleDeleteNote = async (noteId) => {
+    try {
+      const userGhiChu = await AsyncStorage.getItem("userGhiChu");
+      if (userGhiChu) {
+        const notes = JSON.parse(userGhiChu);
+        const updatedNotes = notes.filter((note) => note.id !== noteId);
+        await AsyncStorage.setItem("userGhiChu", JSON.stringify(updatedNotes));
+        setUserNotes(updatedNotes); // Update the state to reflect the deletion
+        setNoteModalVisible(false); // Close the modal
+      }
+    } catch (error) {
+      console.error("Error deleting note:", error);
     }
   };
 
@@ -130,6 +147,7 @@ export default function ThoiKhoaBieuScreen() {
     [userNotes]
   );
 
+  // Hàm lấy dữ liệu ghi chú từ bộ nhớ đệm
   const fetchNotes = async () => {
     try {
       const notesData = await AsyncStorage.getItem("userGhiChu");
@@ -141,6 +159,7 @@ export default function ThoiKhoaBieuScreen() {
     }
   };
 
+  // Hàm xử lý khi quay trở lại
   useFocusEffect(
     useCallback(() => {
       fetchNotes();
@@ -1167,6 +1186,16 @@ export default function ThoiKhoaBieuScreen() {
                         Ngày: {new Date(selectedNote.date).toLocaleDateString()}{" "}
                         Giờ: {new Date(selectedNote.date).toLocaleTimeString()}
                       </Text>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteNote(selectedNote.id)}
+                        className={`py-2 px-4 rounded-full mt-4 ${
+                          isDarkMode ? "bg-red-700" : "bg-red-500"
+                        }`}
+                      >
+                        <Text className="text-white text-center font-bold">
+                          Xóa
+                        </Text>
+                      </TouchableOpacity>
                     </>
                   )}
                 </ScrollView>

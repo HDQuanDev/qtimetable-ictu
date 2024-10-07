@@ -12,12 +12,14 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
 import { firebaseConfig } from "./firebaseConfig";
+import { sendImmediateNotification } from "./LocalNotification";
 
 const firebaseApp = initializeApp(firebaseConfig);
 export const db = getFirestore(firebaseApp);
 
 const KEY_STORAGE_NAME = "user_encryption_key";
 const SYNC_COLLECTION_NAME = "user_data_sync";
+const KEY_SYNC_GHI_CHU = "userGhiChu";
 
 // Hàm tạo khóa mã hóa
 export const generateEncryptionKey = async () => {
@@ -145,37 +147,22 @@ export const deleteData = async (collectionName, docId) => {
   }
 };
 
-// Hàm để lấy tất cả dữ liệu từ AsyncStorage
-const getAllAsyncStorageData = async () => {
-  try {
-    const keys = await AsyncStorage.getAllKeys();
-    const result = {};
-    for (const key of keys) {
-      if (key !== KEY_STORAGE_NAME && key !== "AppLogs") {
-        // Không đồng bộ khóa mã hóa và errorLogs
-        const value = await AsyncStorage.getItem(key);
-        result[key] = value;
-      }
-    }
-    return result;
-  } catch (error) {
-    console.error("Error getting all AsyncStorage data:", error);
-    throw error;
-  }
-};
-
 // Hàm để đồng bộ dữ liệu từ AsyncStorage lên Firestore
 export const syncAsyncStorageToFirestore = async (userId) => {
   try {
     const key = await getUserKey();
-    const allData = await getAllAsyncStorageData();
-    const encryptedData = await encryptData(allData, key);
-    await setDoc(doc(db, SYNC_COLLECTION_NAME, userId), {
-      encryptedData,
-    });
-    console.log("AsyncStorage data synchronized to Firestore successfully");
+    const userGhiChu = await AsyncStorage.getItem("userGhiChu");
+    if (userGhiChu) {
+      const encryptedData = await encryptData(JSON.parse(userGhiChu), key);
+      await setDoc(doc(db, SYNC_COLLECTION_NAME, userId), {
+        encryptedData,
+      });
+      console.log("userGhiChu data synchronized to Firestore successfully");
+    } else {
+      console.log("No userGhiChu data found in AsyncStorage");
+    }
   } catch (error) {
-    console.error("Error syncing AsyncStorage to Firestore:", error);
+    console.error("Error syncing userGhiChu to Firestore:", error);
     throw error;
   }
 };
@@ -205,13 +192,35 @@ export const restoreSyncDataToAsyncStorage = async (userId) => {
   try {
     const decryptedData = await getDecryptedSyncDataFromFirestore(userId);
     if (decryptedData) {
-      for (const [key, value] of Object.entries(decryptedData)) {
-        await AsyncStorage.setItem(key, value);
-      }
-      console.log("Sync data restored to AsyncStorage successfully");
+      await AsyncStorage.setItem("userGhiChu", JSON.stringify(decryptedData));
+      console.log("userGhiChu data restored to AsyncStorage successfully");
+    } else {
+      console.log("No synchronized userGhiChu data found for this user");
     }
   } catch (error) {
-    console.error("Error restoring sync data to AsyncStorage:", error);
+    console.error("Error restoring userGhiChu data to AsyncStorage:", error);
+    throw error;
+  }
+};
+
+export const SyncGhiChu = async () => {
+  try {
+    const userId = await AsyncStorage.getItem("username");
+    if (userId) {
+      const syncStatus = await AsyncStorage.getItem("SyncGhiChuStatus");
+      if (syncStatus === "true") {
+        await restoreSyncDataToAsyncStorage(userId);
+      } else {
+        await syncAsyncStorageToFirestore(userId);
+        await AsyncStorage.setItem("SyncGhiChuStatus", "true");
+        await sendImmediateNotification(
+          "Thông báo đồng bộ dữ liệu",
+          "Dữ liệu ghi chú đã được đồng bộ thành công lên máy chủ của chúng tôi!"
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error syncing userGhiChu data:", error);
     throw error;
   }
 };

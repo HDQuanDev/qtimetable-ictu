@@ -47,6 +47,7 @@ const MenuButton = ({ title, icon, color, onPress, isDarkMode }) => (
 const MenuScreen = () => {
   const [isAboutModalVisible, setAboutModalVisible] = useState(false);
   const [isChangelogModalVisible, setChangelogModalVisible] = useState(false);
+  const [isUserKeyModalVisible, setUserKeyModalVisible] = useState(false);
   const [modalProps, setModalProps] = useState(null);
   const { isDarkMode, handleThemeChange } = useTheme();
   const [user, setUser] = useState(null);
@@ -57,6 +58,7 @@ const MenuScreen = () => {
   const [dataAsync, setDataAsync] = useState(null);
   const [showModalData, setShowModalData] = useState(false);
   const [showModalClearLogs, setShowModalClearLogs] = useState(false);
+  const [userKey, setUserKey] = useState(null);
 
   // Fetch user info from AsyncStorage
   const fetchUserInfo = async () => {
@@ -69,6 +71,16 @@ const MenuScreen = () => {
       Alert.alert("Lỗi", "Không thể tải thông tin người dùng...");
     }
   };
+
+  useEffect(() => {
+    const fetchKey = async () => {
+      const key = await AsyncStorage.getItem("user_encryption_key");
+      if (key) {
+        setUserKey(key);
+      }
+    };
+    fetchKey();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -298,6 +310,14 @@ const MenuScreen = () => {
                       className="w-full flex-row items-center p-4 rounded-xl"
                     />
                     <MenuButton
+                      title="Mã Khóa Người Dùng"
+                      icon="key-outline"
+                      color="bg-purple-800"
+                      isDarkMode={isDarkMode}
+                      onPress={() => setUserKeyModalVisible(true)}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                    <MenuButton
                       title="Nhật ký Lỗi"
                       icon="bug-outline"
                       color="bg-red-700"
@@ -457,6 +477,15 @@ const MenuScreen = () => {
                 await logout();
                 setLogoutModalVisible(false);
               }}
+            />
+
+            <ModalComponent
+              visible={isUserKeyModalVisible}
+              onClose={() => setUserKeyModalVisible(false)}
+              title="Mã Khóa Người Dùng"
+              content={`Mã khóa người dùng của bạn là: ${userKey}`}
+              closeText="Đóng"
+              closeColor="bg-purple-800"
             />
 
             <ModalComponent

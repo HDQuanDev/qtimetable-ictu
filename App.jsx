@@ -20,6 +20,7 @@ import {
 import { setupBackgroundTask } from "./components/backgroundTasks";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { logError } from "./components/SaveLogs";
+import { SyncGhiChu } from "./components/firestore";
 
 const Stack = createStackNavigator(); // Khởi tạo Stack Navigator
 
@@ -147,10 +148,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const syncData = async () => {
+      await SyncGhiChu();
+    };
+    syncData();
+  }, []);
+  
+  useEffect(() => {
     const checkAllNotifications = async () => {
       await scheduleAllNotifications();
 
-      // const userData_LichThi = await AsyncStorage.getItem("userData_ThoiKhoaBieu");
+      // const userData_LichThi = await AsyncStorage.getItem("userGhiChu");
       // console.log(userData_LichThi);
     };
     checkAllNotifications();
