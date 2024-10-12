@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import QRCode from "react-native-qrcode-svg";
 import { useTheme } from "../components/ThemeProvider";
+import { useFocusEffect } from "@react-navigation/native";
 
 // Hàm hiển thị nút chức năng
 const DataList = ({ title, icon, color, data, isDarkMode }) => (
@@ -61,12 +62,16 @@ const ProfileScreen = () => {
       console.error("Error fetching user info:", error);
     }
   };
-  useEffect(() => {
-    const fetchData = async () => {
-      await fetchUserInfo();
-    };
-    fetchData();
-  }, []);
+
+  const fetchData = async () => {
+    await fetchUserInfo();
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
   // Hiển thị giao diện
   return (

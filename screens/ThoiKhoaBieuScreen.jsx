@@ -9,7 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   useWindowDimensions,
+  Dimensions,
 } from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -101,26 +103,109 @@ export default function ThoiKhoaBieuScreen() {
   const [selectedExam, setSelectedExam] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [examModalVisible, setExamModalVisible] = useState(false);
-  const [user, setUser] = useState({});
-  const [lastUpdateTime, setLastUpdateTime] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   const { isDarkMode } = useTheme();
+  const navigation = useNavigation();
+  const [userNotes, setUserNotes] = useState([]);
+  const [selectedNote, setSelectedNote] = useState(null);
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [screenWidth, setScreenWidth] = useState(
+    Dimensions.get("window").width
+  );
+
+  useEffect(() => {
+    const updateLayout = () => {
+      setScreenWidth(Dimensions.get("window").width);
+    };
+
+    Dimensions.addEventListener("change", updateLayout);
+    return () => {
+      Dimensions.removeEventListener("change", updateLayout);
+    };
+  }, []);
+
+  const toggleDropdown = () => setIsOpen(!isOpen);
+
+  const handleOptionSelect = (option) => {
+    if (option === "note") {
+      handleAddNote();
+    } else if (option === "other") {
+      fetchNotes();
+    }
+    setIsOpen(false);
+  };
+
+  const isSmallScreen = screenWidth < 360;
+
+  //hàm xử lý thêm ghi chú
+  const handleAddNote = () => {
+    const parentNavigation = navigation.getParent();
+    if (parentNavigation) {
+      parentNavigation.navigate("AddNote");
+    } else {
+      console.warn("Không thể tìm thấy navigation cha");
+    }
+  };
+
+  //hàm xử lý xóa ghi chú
+  const handleDeleteNote = async (noteId) => {
+    try {
+      const userGhiChu = await AsyncStorage.getItem("userGhiChu");
+      if (userGhiChu) {
+        const notes = JSON.parse(userGhiChu);
+        const updatedNotes = notes.filter((note) => note.id !== noteId);
+        await AsyncStorage.setItem("userGhiChu", JSON.stringify(updatedNotes));
+        setUserNotes(updatedNotes); // Update the state to reflect the deletion
+        setNoteModalVisible(false); // Close the modal
+      }
+    } catch (error) {
+      console.error("Error deleting note:", error);
+    }
+  };
+
+  // Hàm để lấy số lượng ghi chú cho một ngày cụ thể
+  const getNumberOfNotesForDay = useCallback(
+    (date) => {
+      return userNotes.filter((note) => note.date.split("T")[0] === date)
+        .length;
+    },
+    [userNotes]
+  );
+
+  // Hàm lấy dữ liệu ghi chú từ bộ nhớ đệm
+  const fetchNotes = async () => {
+    try {
+      const notesData = await AsyncStorage.getItem("userGhiChu");
+      if (notesData) {
+        setUserNotes(JSON.parse(notesData));
+      }
+    } catch (error) {
+      console.error("Error fetching notes:", error);
+    }
+  };
+  const fetchData = async () => {
+    await fetchScheduleData();
+    await fetchExamData();
+    await fetchNotes();
+  };
+  // Hàm xử lý khi quay trở lại
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotes();
+      fetchData();
+    }, [])
+  );
 
   // Hàm xử lý dữ liệu khi mở ứng dụng
   useEffect(() => {
-    const fetchData = async () => {
-      await fetchScheduleData();
-      await fetchExamData();
-      await fetchUserInfo();
-      await fetchTimeUpdate();
-      const today = new Date();
-      today.setHours(today.getHours() + 7);
-      const todayDateString = today.toISOString().split("T")[0];
-      setSelectedDate(todayDateString);
-      setCurrentWeekStartDate(getWeekStartDate(todayDateString));
-    };
     fetchData();
+    const today = new Date();
+    today.setHours(today.getHours() + 7);
+    const todayDateString = today.toISOString().split("T")[0];
+    setSelectedDate(todayDateString);
+    setCurrentWeekStartDate(getWeekStartDate(todayDateString));
   }, []);
 
   // Hàm xử lý lấy dữ liệu thời khóa biểu từ bộ nhớ đệm
@@ -144,30 +229,6 @@ export default function ThoiKhoaBieuScreen() {
       }
     } catch (error) {
       console.error("Error fetching exam data:", error);
-    }
-  };
-
-  // Hàm xử lý lấy thông tin người dùng từ bộ nhớ đệm
-  const fetchUserInfo = async () => {
-    try {
-      const userInfo = await AsyncStorage.getItem("userInfo");
-      if (userInfo) {
-        setUser(JSON.parse(userInfo));
-      }
-    } catch (error) {
-      console.error("Error fetching user info:", error);
-    }
-  };
-
-  // Hàm xử lý lấy thời gian cập nhật cuối cùng từ bộ nhớ đệm
-  const fetchTimeUpdate = async () => {
-    try {
-      const lastUpdate = await AsyncStorage.getItem("lastUpdate");
-      if (lastUpdate) {
-        setLastUpdateTime(lastUpdate);
-      }
-    } catch (error) {
-      console.error("Error fetching last update time:", error);
     }
   };
 
@@ -297,15 +358,8 @@ export default function ThoiKhoaBieuScreen() {
           await AsyncStorage.getItem("password"),
           "reset"
         );
-        await AsyncStorage.setItem(
-          "lastUpdate",
-          new Date().toLocaleString("vi-VN")
-        );
-        await fetchScheduleData();
-        await fetchExamData();
-        await fetchUserInfo();
-        await fetchTimeUpdate();
-        setNotification(true);
+        await fetchData();
+        await fetchNotes();
       } else {
         Alert.alert("Lỗi", "Không có kết nối mạng, không thể cập nhật!");
         return;
@@ -556,148 +610,175 @@ export default function ThoiKhoaBieuScreen() {
   // Hàm render mục ngày trong tuần
   const memoizedCalendar = useMemo(
     () => (
-      <Calendar
-        allowLunarDates={true}
-        onDayPress={handleDayPress}
-        markedDates={{
-          [selectedDate]: {
-            selected: true,
-            disableTouchEvent: true,
-            selectedColor: isDarkMode ? "#3B82F6" : "#2563EB", // Màu xanh dịu mắt
-            selectedTextColor: "#FFFFFF",
-          },
-          ...examData.reduce((acc, exam) => {
-            const examDate = convertDateFormat(exam.ngay_thi);
-            acc[examDate] = {
-              ...acc[examDate],
-              marked: true,
-              dotColor: "#FDBA74", // Màu cam dịu mắt
-              activeOpacity: 0.8,
-            };
-            return acc;
-          }, {}),
-        }}
-        firstDay={1}
-        style={{
-          borderWidth: 1,
-          borderColor: isDarkMode ? "#6B7280" : "#E5E7EB", // Màu border dịu mắt
-          borderRadius: 10,
-          marginTop: 10,
-          padding: 15,
-        }}
-        theme={{
-          backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF", // Màu nền dịu mắt
-          calendarBackground: isDarkMode ? "#1F2937" : "#FFFFFF",
-          textSectionTitleColor: isDarkMode ? "#94A3B8" : "#4B5563", // Màu tiêu đề dịu mắt
-          monthTextColor: isDarkMode ? "#F9FAFB" : "#1F2937", // Màu tháng dịu mắt
-          arrowColor: isDarkMode ? "#93C5FD" : "#2563EB", // Màu mũi tên dịu mắt
-          todayTextColor: isDarkMode ? "#60A5FA" : "#3B82F6", // Màu hôm nay dịu mắt
-          dayTextColor: isDarkMode ? "#F3F4F6" : "#374151", // Màu ngày dịu mắt
-          textDisabledColor: isDarkMode ? "#6B7280" : "#9CA3AF", // Màu ngày bị vô hiệu hóa dịu mắt
-          selectedDayBackgroundColor: isDarkMode ? "#3B82F6" : "#2563EB", // Màu ngày được chọn dịu mắt
-          selectedDayTextColor: "#FFFFFF",
-          dotColor: "#FDBA74", // Màu chấm dịu mắt
-          selectedDotColor: "#FFFFFF",
-        }}
-        dayComponent={({ date, state }) => {
-          const dateParts = date.dateString.split("-");
-          const solarDate = new Date(
-            `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}T00:00:00Z`
-          );
-          const lunar_Date = new SolarDate(new Date(solarDate));
-          const lunarDate = lunar_Date.toLunarDate();
+      <ScrollView>
+        <Calendar
+          allowLunarDates={true}
+          onDayPress={handleDayPress}
+          markedDates={{
+            [selectedDate]: {
+              selected: true,
+              disableTouchEvent: true,
+              selectedColor: isDarkMode ? "#3B82F6" : "#2563EB",
+              selectedTextColor: "#FFFFFF",
+            },
+            ...examData.reduce((acc, exam) => {
+              const examDate = convertDateFormat(exam.ngay_thi);
+              acc[examDate] = {
+                ...acc[examDate],
+                marked: true,
+                dotColor: "#FDBA74",
+                activeOpacity: 0.8,
+              };
+              return acc;
+            }, {}),
+            ...userNotes.reduce((acc, note) => {
+              const noteDate = note.date.split("T")[0];
+              acc[noteDate] = {
+                ...acc[noteDate],
+                marked: true,
+                dotColor: "#f97316",
+              };
+              return acc;
+            }, {}),
+          }}
+          firstDay={1}
+          style={{
+            borderWidth: 1,
+            borderColor: isDarkMode ? "#6B7280" : "#E5E7EB", // Màu border dịu mắt
+            borderRadius: 10,
+            marginTop: 10,
+            padding: 15,
+          }}
+          theme={{
+            backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF", // Màu nền dịu mắt
+            calendarBackground: isDarkMode ? "#1F2937" : "#FFFFFF",
+            textSectionTitleColor: isDarkMode ? "#94A3B8" : "#4B5563", // Màu tiêu đề dịu mắt
+            monthTextColor: isDarkMode ? "#F9FAFB" : "#1F2937", // Màu tháng dịu mắt
+            arrowColor: isDarkMode ? "#93C5FD" : "#2563EB", // Màu mũi tên dịu mắt
+            todayTextColor: isDarkMode ? "#60A5FA" : "#3B82F6", // Màu hôm nay dịu mắt
+            dayTextColor: isDarkMode ? "#F3F4F6" : "#374151", // Màu ngày dịu mắt
+            textDisabledColor: isDarkMode ? "#6B7280" : "#9CA3AF", // Màu ngày bị vô hiệu hóa dịu mắt
+            selectedDayBackgroundColor: isDarkMode ? "#3B82F6" : "#2563EB", // Màu ngày được chọn dịu mắt
+            selectedDayTextColor: "#FFFFFF",
+            dotColor: "#FDBA74", // Màu chấm dịu mắt
+            selectedDotColor: "#FFFFFF",
+          }}
+          dayComponent={({ date, state }) => {
+            const dateParts = date.dateString.split("-");
+            const solarDate = new Date(
+              `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}T00:00:00Z`
+            );
+            const lunar_Date = new SolarDate(new Date(solarDate));
+            const lunarDate = lunar_Date.toLunarDate();
 
-          return (
-            <TouchableOpacity
-              onPress={() => handleDayPress(date)}
-              style={{
-                width: 40,
-                height: 40,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 20,
-                backgroundColor:
-                  selectedDate === date.dateString
-                    ? isDarkMode
-                      ? "#3B82F6"
-                      : "#2563EB" // Màu nền ngày được chọn dịu mắt
-                    : state === "today"
-                    ? isDarkMode
-                      ? "#3B82F620"
-                      : "#2563EB20" // Màu nền hôm nay dịu mắt
-                    : "transparent",
-              }}
-            >
-              <Text
+            return (
+              <TouchableOpacity
+                onPress={() => handleDayPress(date)}
                 style={{
-                  fontSize: 16,
-                  fontWeight: state === "today" ? "bold" : "normal",
-                  color:
-                    selectedDate === date.dateString
-                      ? "#FFFFFF"
-                      : state === "disabled"
-                      ? isDarkMode
-                        ? "#6B7280"
-                        : "#9CA3AF" // Màu chữ ngày bị vô hiệu hóa dịu mắt
-                      : isDarkMode
-                      ? "#D1D5DB"
-                      : "#374151", // Màu chữ ngày dịu mắt
-                }}
-              >
-                {date.day}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 10,
-                  color: isDarkMode ? "#9CA3AF" : "#9CA3AF",
-                }}
-              >
-                {lunarDate.day}/{lunarDate.month}
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
+                  width: 40,
+                  height: 40,
+                  alignItems: "center",
                   justifyContent: "center",
-                  marginTop: 4,
+                  borderRadius: 20,
+                  backgroundColor:
+                    selectedDate === date.dateString
+                      ? isDarkMode
+                        ? "#3B82F6"
+                        : "#2563EB" // Màu nền ngày được chọn dịu mắt
+                      : state === "today"
+                      ? isDarkMode
+                        ? "#3B82F620"
+                        : "#2563EB20" // Màu nền hôm nay dịu mắt
+                      : "transparent",
                 }}
               >
-                {[
-                  ...Array(
-                    Math.min(3, getNumberOfClassesForDay(date.dateString))
-                  ),
-                ].map((_, i) => (
-                  <View
-                    key={`class-${i}`}
-                    style={{
-                      width: 6,
-                      height: 6,
-                      backgroundColor: "#10B981",
-                      borderRadius: 3,
-                      marginHorizontal: 1,
-                    }}
-                  />
-                ))}
-                {[
-                  ...Array(
-                    Math.min(3, getNumberOfExamsForDay(date.dateString))
-                  ),
-                ].map((_, i) => (
-                  <View
-                    key={`exam-${i}`}
-                    style={{
-                      width: 6,
-                      height: 6,
-                      backgroundColor: "#EF4444",
-                      borderRadius: 3,
-                      marginHorizontal: 1,
-                    }}
-                  />
-                ))}
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-      />
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: state === "today" ? "bold" : "normal",
+                    color:
+                      selectedDate === date.dateString
+                        ? "#FFFFFF"
+                        : state === "disabled"
+                        ? isDarkMode
+                          ? "#6B7280"
+                          : "#9CA3AF" // Màu chữ ngày bị vô hiệu hóa dịu mắt
+                        : isDarkMode
+                        ? "#D1D5DB"
+                        : "#374151", // Màu chữ ngày dịu mắt
+                  }}
+                >
+                  {date.day}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    color: isDarkMode ? "#9CA3AF" : "#9CA3AF",
+                  }}
+                >
+                  {lunarDate.day}/{lunarDate.month}
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    marginTop: 4,
+                  }}
+                >
+                  {[
+                    ...Array(
+                      Math.min(3, getNumberOfClassesForDay(date.dateString))
+                    ),
+                  ].map((_, i) => (
+                    <View
+                      key={`class-${i}`}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        backgroundColor: "#10B981",
+                        borderRadius: 3,
+                        marginHorizontal: 1,
+                      }}
+                    />
+                  ))}
+                  {[
+                    ...Array(
+                      Math.min(3, getNumberOfExamsForDay(date.dateString))
+                    ),
+                  ].map((_, i) => (
+                    <View
+                      key={`exam-${i}`}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        backgroundColor: "#EF4444",
+                        borderRadius: 3,
+                        marginHorizontal: 1,
+                      }}
+                    />
+                  ))}
+                  {[
+                    ...Array(
+                      Math.min(3, getNumberOfNotesForDay(date.dateString))
+                    ),
+                  ].map((_, i) => (
+                    <View
+                      key={`note-${i}`}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        backgroundColor: "#F59E0B",
+                        borderRadius: 3,
+                        marginHorizontal: 1,
+                      }}
+                    />
+                  ))}
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </ScrollView>
     ),
     [
       selectedDate,
@@ -707,7 +788,96 @@ export default function ThoiKhoaBieuScreen() {
       examData,
       convertDateFormat,
       isDarkMode,
+      userNotes,
     ]
+  );
+
+  // Hàm render ghi chú
+
+  const renderNoteItem = useCallback(
+    ({ item, isDarkMode }) => {
+      const formatTime = (dateString) => {
+        const date = new Date(dateString);
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
+        return `${hours}:${minutes}`;
+      };
+
+      const formattedTime = formatTime(item.date);
+
+      return (
+        <TouchableOpacity
+          onPress={() => {
+            setSelectedNote(item);
+            setNoteModalVisible(true);
+          }}
+          className="mb-4"
+        >
+          <LinearGradient
+            colors={
+              isDarkMode ? ["#2c3e50", "#34495e"] : ["#e0f2f1", "#b2dfdb"]
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className={`p-4 rounded-3xl shadow-md ${
+              isDarkMode ? "dark:shadow-lg dark:bg-gray-800" : "bg-white"
+            } ${
+              isDarkMode
+                ? "dark:border-2 dark:border-teal-300"
+                : "border-2 border-teal-200"
+            }`}
+          >
+            <View className="flex-row justify-between items-center mb-3">
+              <View
+                className={`px-3 py-1 rounded-full ${
+                  isDarkMode ? "bg-teal-700" : "bg-teal-400"
+                }`}
+              >
+                <Text
+                  className={`font-semibold text-xs ${
+                    isDarkMode ? "text-gray-200" : "text-white"
+                  }`}
+                >
+                  Ghi chú
+                </Text>
+              </View>
+              <View
+                className={`px-3 py-1 rounded-full ${
+                  isDarkMode ? "bg-gray-600" : "bg-gray-200"
+                }`}
+              >
+                <Text
+                  className={`text-sm font-medium ${
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  }`}
+                >
+                  {formattedTime}
+                </Text>
+              </View>
+            </View>
+            <Text
+              className={`text-xl font-bold mb-2 leading-tight ${
+                isDarkMode ? "text-gray-200" : "text-gray-800"
+              }`}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
+              {item.title}
+            </Text>
+            <Text
+              className={`text-sm ${
+                isDarkMode ? "text-gray-300" : "text-gray-600"
+              }`}
+              numberOfLines={3}
+              ellipsizeMode="tail"
+            >
+              {item.content}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      );
+    },
+    [setSelectedNote, setNoteModalVisible]
   );
 
   // Hàm render mục ngày trong tuần
@@ -799,6 +969,14 @@ export default function ThoiKhoaBieuScreen() {
                 className="w-1 h-1 bg-red-500 rounded-full mx-0.5" // Màu đỏ dịu mắt hơn
               />
             ))}
+            {[
+              ...Array(Math.min(2, getNumberOfNotesForDay(day.dateString))),
+            ].map((_, i) => (
+              <View
+                key={`note-${i}`}
+                className="w-1 h-1 bg-orange-500 rounded-full mx-0.5"
+              />
+            ))}
           </View>
         </TouchableOpacity>
       );
@@ -808,6 +986,7 @@ export default function ThoiKhoaBieuScreen() {
       handleDayPress,
       getNumberOfClassesForDay,
       getNumberOfExamsForDay,
+      getNumberOfNotesForDay,
     ]
   ); // Thêm isDarkMode vào dependency array
 
@@ -898,13 +1077,21 @@ export default function ThoiKhoaBieuScreen() {
               {calendarExpanded && memoizedCalendar}
             </View>
             <FlatList
-              data={[...getScheduleForDate(), ...getExamsForDate()]}
+              data={[
+                ...getScheduleForDate(),
+                ...getExamsForDate(),
+                ...userNotes.filter(
+                  (note) => note.date.split("T")[0] === selectedDate
+                ),
+              ]}
               renderItem={({ item }) =>
                 item.ca_thi
                   ? renderExamItem({ item, isDarkMode })
+                  : item.content
+                  ? renderNoteItem({ item, isDarkMode })
                   : renderClassItem({ item, isDarkMode })
               }
-              keyExtractor={(item, index) => `${item.STT}-${index}`}
+              keyExtractor={(item, index) => `${item.id || item.STT}-${index}`}
               ListEmptyComponent={
                 <View
                   className={`p-6 rounded-3xl shadow-md ${
@@ -920,7 +1107,7 @@ export default function ThoiKhoaBieuScreen() {
                       isDarkMode ? "text-gray-200" : "text-gray-800"
                     }`}
                   >
-                    Không có lớp học hoặc lịch thi nào trong ngày này.
+                    Không có lớp học, lịch thi hoặc ghi chú nào trong ngày này.
                   </Text>
                   <Text
                     className={`text-center italic mt-3 text-base ${
@@ -928,13 +1115,152 @@ export default function ThoiKhoaBieuScreen() {
                     }`}
                   >
                     Bạn có thể vuốt sang trái hoặc phải để xem lịch của các ngày
-                    khác.
+                    khác hoặc nhấn vào dấu + để thêm ghi chú.
                   </Text>
                 </View>
               }
             />
+            <View className="absolute bottom-4 right-4">
+              <TouchableOpacity
+                onPress={toggleDropdown}
+                className={`p-4 rounded-full ${
+                  isDarkMode ? "bg-blue-500" : "bg-blue-600"
+                }`}
+              >
+                <Ionicons
+                  name={isOpen ? "close" : "document-text-outline"}
+                  size={24}
+                  color="white"
+                />
+              </TouchableOpacity>
+
+              {isOpen && (
+                <View
+                  className={`absolute bottom-16 right-0 rounded-lg shadow-lg ${
+                    isDarkMode ? "bg-gray-800" : "bg-white"
+                  }`}
+                  style={{
+                    width: isSmallScreen ? 160 : 200,
+                  }}
+                >
+                  <TouchableOpacity
+                    onPress={() => handleOptionSelect("note")}
+                    className={`flex-row items-center px-4 py-3 ${
+                      isDarkMode
+                        ? "border-b border-gray-700"
+                        : "border-b border-gray-200"
+                    }`}
+                  >
+                    <Ionicons
+                      name="document-text-outline"
+                      size={isSmallScreen ? 20 : 24}
+                      color={isDarkMode ? "white" : "black"}
+                    />
+                    <Text
+                      className={`ml-3 ${
+                        isDarkMode ? "text-white" : "text-black"
+                      } ${isSmallScreen ? "text-sm" : "text-base"}`}
+                    >
+                      Thêm ghi chú
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleOptionSelect("other")}
+                    className="flex-row items-center px-4 py-3"
+                  >
+                    <Ionicons
+                      name="reload"
+                      size={isSmallScreen ? 20 : 24}
+                      color={isDarkMode ? "white" : "black"}
+                    />
+                    <Text
+                      className={`ml-3 ${
+                        isDarkMode ? "text-white" : "text-black"
+                      } ${isSmallScreen ? "text-sm" : "text-base"}`}
+                    >
+                      Tải lại dữ liệu ghi chú
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
         </PanGestureHandler>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={noteModalVisible}
+          onRequestClose={() => setNoteModalVisible(false)}
+        >
+          <View
+            className="flex-1 justify-center items-center bg-opacity-25 block"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.6)" }}
+          >
+            <LinearGradient
+              colors={
+                isDarkMode ? ["#2c3e50", "#34495e"] : ["#e0f2f1", "#b2dfdb"]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              className={`p-4 rounded-3xl shadow-md ${
+                isDarkMode ? "dark:shadow-lg dark:bg-gray-800" : "bg-white"
+              } ${
+                isDarkMode
+                  ? "dark:border-2 dark:border-teal-300"
+                  : "border-2 border-teal-200"
+              }`}
+            >
+              <View className="rounded-lg p-6 w-11/12 max-h-5/6">
+                <ScrollView>
+                  {selectedNote && (
+                    <>
+                      <Text
+                        className={`text-center text-2xl font-bold mb-4 ${
+                          isDarkMode ? "text-teal-300" : "text-teal-600"
+                        }`}
+                      >
+                        {selectedNote.title}
+                      </Text>
+                      <Text
+                        className={`text-lg mb-4 ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
+                        {selectedNote.content}
+                      </Text>
+                      <Text
+                        className={`text-sm ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Ngày: {new Date(selectedNote.date).toLocaleDateString()}{" "}
+                        Giờ: {new Date(selectedNote.date).toLocaleTimeString()}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteNote(selectedNote.id)}
+                        className={`py-2 px-4 rounded-full mt-4 ${
+                          isDarkMode ? "bg-red-700" : "bg-red-500"
+                        }`}
+                      >
+                        <Text className="text-white text-center font-bold">
+                          Xóa
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </ScrollView>
+                <TouchableOpacity
+                  onPress={() => setNoteModalVisible(false)}
+                  className={`py-2 px-4 rounded-full mt-4 ${
+                    isDarkMode ? "bg-teal-700" : "bg-teal-500"
+                  }`}
+                >
+                  <Text className="text-white text-center font-bold">Đóng</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        </Modal>
         <Modal
           animationType="slide"
           transparent={true}

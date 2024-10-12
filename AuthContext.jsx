@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { cancelAllClassNotifications } from "./components/LocalNotification";
 import { Alert } from "react-native";
 import { logError } from "./components/SaveLogs";
+import { unregisterBackgroundTask } from "./components/backgroundTasks";
 
 const AuthContext = createContext(); // Khởi tạo Context
 
@@ -47,24 +48,28 @@ export const AuthProvider = ({ children }) => {
   // Hàm đăng xuất
   const logout = async () => {
     try {
-      await AsyncStorage.removeItem("isLoggedIn");
-      await AsyncStorage.removeItem("lastUpdate");
-      await AsyncStorage.removeItem("lastRunDate");
-      await AsyncStorage.removeItem("username");
-      await AsyncStorage.removeItem("password");
-      await AsyncStorage.removeItem("taskLock");
-      await AsyncStorage.removeItem("userData_ThoiKhoaBieu");
-      await AsyncStorage.removeItem("userData_LichThi");
-      await AsyncStorage.removeItem("userInfo");
-      await AsyncStorage.removeItem("userData_Diem");
-      await AsyncStorage.removeItem("userData_DiemDetail");
+      const keysToKeep = [
+        "@battery_optimization_checked",
+        "@intro_completed",
+        "AppLogs",
+        "expoPushToken",
+        "user_encryption_key",
+        "firstTime_v2.5.stable",
+      ];
+
+      const allKeys = await AsyncStorage.getAllKeys();
+      const keysToRemove = allKeys.filter((key) => !keysToKeep.includes(key));
+
+      await AsyncStorage.multiRemove(keysToRemove);
       await cancelAllClassNotifications();
+      await unregisterBackgroundTask();
       setIsLoggedIn(false);
     } catch (error) {
       Alert.alert("Lỗi", "Không thể đăng xuất: " + error.message);
       await logError("Lỗi khi đăng xuất:", error);
     }
   };
+
   return (
     <AuthContext.Provider value={{ isLoggedIn, isLoading, login, logout }}>
       {children}

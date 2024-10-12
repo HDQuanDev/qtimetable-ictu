@@ -2,7 +2,7 @@
   "expo": {
     "name": "QTimeTable",
     "slug": "ThoiKhoaBieuApp",
-    "version": "2.1.stable",
+    "version": "2.6.stable",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -36,7 +36,6 @@
         "projectId": "f2359441-8b5b-4f85-a021-7d4b6ae444d0"
       }
     },
-    "plugins": [
-    ]
+    "plugins": []
   }
 }

@@ -8,6 +8,8 @@ import {
   Alert,
   StatusBar,
   Image,
+  Clipboard,
+  TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -47,6 +49,7 @@ const MenuButton = ({ title, icon, color, onPress, isDarkMode }) => (
 const MenuScreen = () => {
   const [isAboutModalVisible, setAboutModalVisible] = useState(false);
   const [isChangelogModalVisible, setChangelogModalVisible] = useState(false);
+  const [isUserKeyModalVisible, setUserKeyModalVisible] = useState(false);
   const [modalProps, setModalProps] = useState(null);
   const { isDarkMode, handleThemeChange } = useTheme();
   const [user, setUser] = useState(null);
@@ -57,6 +60,9 @@ const MenuScreen = () => {
   const [dataAsync, setDataAsync] = useState(null);
   const [showModalData, setShowModalData] = useState(false);
   const [showModalClearLogs, setShowModalClearLogs] = useState(false);
+  const [userKey, setUserKey] = useState(null);
+  const [showP2PModal, setShowP2PModal] = useState(false);
+  const [newP2PKey, setNewP2PKey] = useState("");
 
   // Fetch user info from AsyncStorage
   const fetchUserInfo = async () => {
@@ -69,6 +75,16 @@ const MenuScreen = () => {
       Alert.alert("Lỗi", "Không thể tải thông tin người dùng...");
     }
   };
+
+  useEffect(() => {
+    const fetchKey = async () => {
+      const key = await AsyncStorage.getItem("user_encryption_key");
+      if (key) {
+        setUserKey(key);
+      }
+    };
+    fetchKey();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -108,6 +124,24 @@ const MenuScreen = () => {
         break;
     }
   };
+
+  const handleUpdateP2PKey = async () => {
+    if (newP2PKey.trim() === "") {
+      Alert.alert("Lỗi", "Vui lòng nhập mã P2P mới.");
+      return;
+    }
+    try {
+      await AsyncStorage.setItem("user_encryption_key", newP2PKey.trim());
+      setUserKey(newP2PKey.trim());
+      Alert.alert("Thành công", "Mã P2P đã được cập nhật.");
+      setShowP2PModal(false);
+      setNewP2PKey("");
+    } catch (error) {
+      console.error("Error updating P2P key:", error);
+      Alert.alert("Lỗi", "Không thể cập nhật mã P2P. Vui lòng thử lại sau.");
+    }
+  };
+
   const SettingsCard = ({ title, icon, children }) => {
     return (
       <View
@@ -276,7 +310,10 @@ const MenuScreen = () => {
                         try {
                           const keys = await AsyncStorage.getAllKeys();
                           const filteredKeys = keys.filter(
-                            (key) => key !== "AppLogs"
+                            (key) =>
+                              key !== "AppLogs" &&
+                              key !== "user_encryption_key" &&
+                              key !== "expoPushToken"
                           );
                           const stores = await AsyncStorage.multiGet(
                             filteredKeys
@@ -298,7 +335,23 @@ const MenuScreen = () => {
                       className="w-full flex-row items-center p-4 rounded-xl"
                     />
                     <MenuButton
-                      title="Nhật ký Lỗi"
+                      title="Mã P2P Người Dùng"
+                      icon="key-outline"
+                      color="bg-purple-800"
+                      isDarkMode={isDarkMode}
+                      onPress={() => setUserKeyModalVisible(true)}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                    <MenuButton
+                      title="Cập nhật Mã P2P"
+                      icon="key-outline"
+                      color="bg-indigo-700"
+                      isDarkMode={isDarkMode}
+                      onPress={() => setShowP2PModal(true)}
+                      className="w-full flex-row items-center p-4 rounded-xl"
+                    />
+                    <MenuButton
+                      title="Nhật ký Console Log"
                       icon="bug-outline"
                       color="bg-red-700"
                       isDarkMode={isDarkMode}
@@ -310,7 +363,7 @@ const MenuScreen = () => {
                       className="w-full flex-row items-center p-4 rounded-xl"
                     />
                     <MenuButton
-                      title="Xóa Nhật Ký Lỗi"
+                      title="Xóa Nhật Ký Console Log"
                       icon="trash-outline"
                       color="bg-red-700"
                       isDarkMode={isDarkMode}
@@ -409,7 +462,7 @@ const MenuScreen = () => {
                       isDarkMode ? "text-gray-300" : "text-gray-600"
                     } text-sm ml-2`}
                   >
-                    Build ID: <Text className="font-semibold">2024.09.25</Text>
+                    Build ID: <Text className="font-semibold">2024.10.12</Text>
                   </Text>
                   <Text
                     className={`${
@@ -436,8 +489,10 @@ const MenuScreen = () => {
                     Ứng dụng này do Hứa Đức Quân phát triển và không liên quan
                     đến trường Đại học Công Nghệ Thông Tin & Truyền Thông Thái
                     Nguyên, mọi thông tin trong ứng dụng chỉ được lưu trữ tại
-                    thiết bị của bạn và không được chia sẻ ra bên ngoài ngoại
-                    trừ Token để thực hiện gửi thông báo từ server.
+                    thiết bị của bạn và không được chia sẻ ra bên ngoài, ngoại
+                    trừ Dữ Liệu Ghi Chú được mã hoá bằng mã P2P của bạn và lưu
+                    trữ tại máy chủ FireStore của tôi kèm theo thông tin mã
+                    Token Push Notification và tên thiết bị của bạn.
                   </Text>
                 </View>
               </ScrollView>
@@ -460,6 +515,55 @@ const MenuScreen = () => {
             />
 
             <ModalComponent
+              visible={isUserKeyModalVisible}
+              onClose={() => setUserKeyModalVisible(false)}
+              title="Mã P2P Người Dùng"
+              content={`Mã khóa người dùng của bạn là:\n ${userKey}`}
+              closeText="Đóng"
+              closeColor="bg-purple-800"
+              actionText={"Sao chép"}
+              actionColor="bg-blue-700"
+              onActionPress={async () => {
+                await Clipboard.setString(userKey);
+                setUserKeyModalVisible(false);
+                Alert.alert("Thông báo", "Đã sao chép mã khóa người dùng!");
+              }}
+            />
+            <ModalComponent
+              visible={showP2PModal}
+              onClose={() => {
+                setShowP2PModal(false);
+                setNewP2PKey("");
+              }}
+              title="Cập nhật Mã P2P"
+              content={
+                <View>
+                  <Text
+                    className={`${
+                      isDarkMode ? "text-white" : "text-black"
+                    } mb-2`}
+                  >
+                    Nhập mã P2P mới:
+                  </Text>
+                  <TextInput
+                    value={newP2PKey}
+                    onChangeText={setNewP2PKey}
+                    placeholder="Nhập mã P2P mới"
+                    className={`border p-2 rounded ${
+                      isDarkMode
+                        ? "border-gray-600 text-white"
+                        : "border-gray-300 text-black"
+                    }`}
+                  />
+                </View>
+              }
+              closeText="Hủy"
+              closeColor="bg-gray-500"
+              actionText="Cập nhật"
+              actionColor="bg-indigo-700"
+              onActionPress={handleUpdateP2PKey}
+            />
+            <ModalComponent
               visible={isAboutModalVisible}
               onClose={() => setAboutModalVisible(false)}
               title="Thông tin ứng dụng"
@@ -472,7 +576,7 @@ const MenuScreen = () => {
               visible={isChangelogModalVisible}
               onClose={() => setChangelogModalVisible(false)}
               title="Nhật ký thay đổi"
-              content={`** PHIÊN BẢN 2.1.STABLE **\n\n- Cập nhật, URL Api mới.\n- Cập nhật, giao diện cài đặt được sắp xếp lại\n- Thêm, chức năng tự động cập nhật dữ liệu lịch học, lịch thi, điểm số\n- Thêm, chức năng xem Nhật Ký Lỗi trong Cài Đặt\n- Thêm, chức năng xem Dữ Liệu Storage trong Cài Đặt\n- Sửa lỗi, nút tải lại dữ liệu ở Tab Thời Khoá Biểu và Bảng Điểm che mất nội dung\n- Clear Code\n\n© ${new Date().getFullYear()} Made with ❤️ by Hứa Đức Quân`}
+              content={`** PHIÊN BẢN 2.6.STABLE **\n\n- Sửa Lỗi: Hệ thống lưu trữ FireStorage không hoạt động.\n- Sửa lỗi: Tác vụ chạy nền không hoạt động đúng cách trong 1 số trường hợp.\n- Sửa lỗi: Dữ liệu không tự cập nhật lại khi có thay đổi.\n- Sửa lỗi: Một số lỗi khác đã biết trước đó.\n\n** PHIÊN BẢN 2.5.STABLE **\n\n- Thêm: Giao diện AddNoteScreen.\n- Thêm: Hỗ trợ lưu trữ ghi chú mã hoá P2P.\n- Thêm: Giao diện IntroScreen\n- Thêm: Giao diện LoadingSpinner\n- Cập Nhật: Thêm các mục cài đặt mới, và sửa lại văn bản một số mục cài đặt\n- Cập Nhật: Nút sao chép trong một số mục trong Cài đặt\n- Tối Ưu: Hệ thống lưu trữ nhật ký Console Log\n- Sửa Lỗi: Giao diện người dùng, và một số lỗi đã biết\n\n© ${new Date().getFullYear()} Made with ❤️ by Hứa Đức Quân`}
               closeText={"Đóng"}
               closeColor={"bg-teal-700"}
             />
@@ -485,14 +589,31 @@ const MenuScreen = () => {
                 content={`${JSON.stringify(dataAsync, null, 2)}`}
                 closeText="Đóng"
                 closeColor="bg-yellow-600"
+                actionText={"Sao chép"}
+                actionColor="bg-blue-700"
+                onActionPress={async () => {
+                  const dataString = dataAsync
+                    .map(
+                      (data) =>
+                        `${data.key}: ${
+                          typeof data.value === "object"
+                            ? JSON.stringify(data.value)
+                            : data.value
+                        }`
+                    )
+                    .join("\n");
+                  await Clipboard.setString(dataString);
+                  setShowModalData(false);
+                  Alert.alert("Thông báo", "Đã sao chép dữ liệu!");
+                }}
               />
             )}
             {showModalClearLogs && (
               <ModalComponent
                 visible={true}
                 onClose={() => setShowModalClearLogs(false)}
-                title="Xóa Nhật Ký Lỗi"
-                content="Bạn có chắc chắn muốn xóa toàn bộ nhật ký lỗi không? Hành động này không thể hoàn tác!"
+                title="Xóa Nhật Ký Console Log"
+                content="Bạn có chắc chắn muốn xóa toàn bộ nhật ký Console Log không? Hành động này không thể hoàn tác!"
                 closeText="Hủy"
                 closeColor="bg-gray-700"
                 actionText="Xóa"
@@ -524,10 +645,22 @@ const MenuScreen = () => {
                     setLogs([]);
                     setShowModalLogs(false);
                   }}
-                  title="Nhật ký lỗi"
+                  title="Nhật ký Console Log"
                   content={`${JSON.stringify(logs, null, 2)}`}
                   closeText="Đóng"
                   closeColor="bg-red-700"
+                  actionText={"Sao chép"}
+                  actionColor="bg-blue-700"
+                  onActionPress={async () => {
+                    const logsString = logs
+                      .map((log) =>
+                        typeof log === "object" ? JSON.stringify(log) : log
+                      )
+                      .join("\n");
+                    await Clipboard.setString(logsString);
+                    setShowModalLogs(false);
+                    Alert.alert("Thông báo", "Đã sao chép nhật ký!");
+                  }}
                 />
               ) : (
                 <ModalComponent
