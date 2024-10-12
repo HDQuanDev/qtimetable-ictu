@@ -10,7 +10,6 @@ import {
 import { BlurView } from "expo-blur";
 import { useTheme } from "./ThemeProvider";
 
-// Hàm hiển thị Modal
 const ModalComponent = ({
   visible,
   onClose,
@@ -81,18 +80,17 @@ const ModalComponent = ({
               {title}
             </Text>
             <ScrollView className="mb-6">
-              <Text
-                className={`${
-                  isDarkMode ? "text-gray-300" : "text-gray-600"
-                } text-base`}
-              >
-                {content.split("\n").map((line, index) => (
-                  <React.Fragment key={index}>
-                    {line}
-                    {"\n"}
-                  </React.Fragment>
-                ))}
-              </Text>
+              {typeof content === 'string' ? (
+                <Text
+                  className={`${
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  } text-base`}
+                >
+                  {content}
+                </Text>
+              ) : (
+                content
+              )}
             </ScrollView>
             <View
               className={`flex-row ${

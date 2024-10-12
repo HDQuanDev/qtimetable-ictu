@@ -1,135 +1,231 @@
+// backgroundTasks.js
 import * as BackgroundFetch from "expo-background-fetch";
 import * as TaskManager from "expo-task-manager";
-import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
-import { logError } from "./SaveLogs";
-import axios from "axios";
+import { sendImmediateNotification } from "./LocalNotification";
+import { api_ictu } from "../services/api";
+import { AppState } from "react-native";
+import { logError, logInfo } from "./SaveLogs";
 
 const BACKGROUND_FETCH_TASK = "background-fetch-task-api";
-const url_api = "https://api-tkb.quanhd.net/get_tkb";
-export const api_ictu = async (
-  username = "",
-  password = "",
-  type = "login"
-) => {
+const LAST_RUN_DATE_KEY = "lastRunDate";
+const USERNAME_KEY = "username";
+const PASSWORD_KEY = "password";
+const LAST_UPDATE_KEY = "lastUpdate";
+const TASK_LOCK_KEY = "taskLock";
+
+const TIME_WINDOW = {
+  start: { hour: 1, minute: 1 },
+  end: { hour: 6, minute: 30 },
+};
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 5 * 60 * 1000; // 5 minutes
+const MINIMUM_INTERVAL = 15 * 60; // 15 minutes in seconds
+
+const isTimeToRun = async () => {
   try {
-    const response = await axios.post(url_api, {
-      username:
-        type === "login" ? username : await AsyncStorage.getItem("username"),
-      password:
-        type === "login" ? password : await AsyncStorage.getItem("password"),
-    });
-    if (response.status === 200) {
-      try {
-        await AsyncStorage.setItem(
-          "userData_ThoiKhoaBieu",
-          JSON.stringify(response.data.thoikhoabieu)
-        );
-        await AsyncStorage.setItem(
-          "userData_LichThi",
-          JSON.stringify(response.data.lichthi)
-        );
-        await AsyncStorage.setItem(
-          "userInfo",
-          JSON.stringify(response.data.user_info)
-        );
-        await AsyncStorage.setItem(
-          "userData_Diem",
-          JSON.stringify(response.data.diem)
-        );
-        await AsyncStorage.setItem(
-          "userData_DiemDetail",
-          JSON.stringify(response.data.diem_detail)
-        );
-        await AsyncStorage.setItem(
-          "lastUpdate",
-          new Date().toLocaleString("vi-VN")
-        );
-        await AsyncStorage.setItem("lastRunDate", new Date().toDateString());
-      } catch (error) {
-        await logError("ERROR", "backgroundTasks.jsx - 64: api_ictu: " + error.message);
-      }
-      return true;
+    const now = new Date();
+    const { start, end } = TIME_WINDOW;
+
+    const isWithinTimeRange =
+      (now.getHours() > start.hour ||
+        (now.getHours() === start.hour && now.getMinutes() >= start.minute)) &&
+      (now.getHours() < end.hour ||
+        (now.getHours() === end.hour && now.getMinutes() <= end.minute));
+
+    if (isWithinTimeRange) {
+      const today = now.toDateString();
+      const lastRunDate = await AsyncStorage.getItem(LAST_RUN_DATE_KEY);
+      const shouldRun = lastRunDate !== today;
+      await logInfo(
+        `isTimeToRun: ${shouldRun}, lastRunDate: ${lastRunDate}, current: ${today}`
+      );
+      return shouldRun;
     }
+    await logInfo(
+      `isTimeToRun: false, current time: ${now.toLocaleTimeString()}`
+    );
+    return false;
   } catch (error) {
-    await logError("ERROR", "backgroundTasks.jsx - 64: api_ictu: " + error.message);
+    await logError(
+      "ERROR",
+      `backgroundTasks.js: Error checking run time: ${error}`
+    );
+    return false;
   }
 };
 
-// Hàm kiểm tra xem có nên chạy tác vụ hay không
-const shouldRunTask = async () => {
-  const now = new Date();
-  const hour = now.getHours();
-  const lastRunDate = await AsyncStorage.getItem("lastRunDate");
-  const today = now.toDateString();
+const withLock = async (operation) => {
+  if (await AsyncStorage.getItem(TASK_LOCK_KEY)) {
+    return false;
+  }
 
-  return (hour >= 16 && hour <= 18) && lastRunDate !== today;
+  await AsyncStorage.setItem(TASK_LOCK_KEY, "locked");
+  try {
+    return await operation();
+  } finally {
+    await AsyncStorage.removeItem(TASK_LOCK_KEY);
+  }
 };
 
-// Định nghĩa tác vụ nền
+const runAPITask = async (retryCount = 0) => {
+  return withLock(async () => {
+    try {
+      await logInfo(`Starting API task, retry count: ${retryCount}`);
+      const state = await NetInfo.fetch();
+      if (!state.isInternetReachable) {
+        throw new Error("No internet connection");
+      }
+
+      const [username, password] = await Promise.all([
+        AsyncStorage.getItem(USERNAME_KEY),
+        AsyncStorage.getItem(PASSWORD_KEY),
+      ]);
+
+      if (!username || !password) {
+        await sendImmediateNotification(
+          "Cập nhật thông tin đăng nhập",
+          "Vui lòng cập nhật thông tin đăng nhập để tiếp tục đồng bộ dữ liệu"
+        );
+        await logInfo("API task failed: Missing credentials");
+        return false;
+      }
+
+      await api_ictu(username, password, "reset");
+
+      await sendImmediateNotification(
+        "Đã tự động cập nhật dữ liệu mới",
+        "Hệ thống đã tự động cập nhật dữ liệu lịch học, lịch thi, điểm số mới nhất từ hệ thống ICTU"
+      );
+      await logInfo("API task completed successfully");
+      return true;
+    } catch (error) {
+      await logError("ERROR", `backgroundTasks.js: API task error: ${error}`);
+      if (retryCount < MAX_RETRIES) {
+        await logInfo(
+          `Scheduling retry #${retryCount + 1} in ${RETRY_DELAY / 1000} seconds`
+        );
+        setTimeout(() => runAPITask(retryCount + 1), RETRY_DELAY);
+      }
+      return false;
+    }
+  });
+};
+
 TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
   try {
-    await logError("INFO", "Bắt đầu tác vụ nền");
-    
-    const netState = await NetInfo.fetch();
-    if (!netState.isConnected) {
-      await logError("INFO", "Không có kết nối internet, bỏ qua tác vụ");
-      return BackgroundFetch.BackgroundFetchResult.NoData;
+    await logInfo("Background fetch task started");
+    if (await isTimeToRun()) {
+      const result = await runAPITask();
+      await logInfo(
+        `Background fetch task completed with result: ${
+          result ? "NewData" : "Failed"
+        }`
+      );
+      return result
+        ? BackgroundFetch.BackgroundFetchResult.NewData
+        : BackgroundFetch.BackgroundFetchResult.Failed;
     }
-
-    if (await shouldRunTask()) {
-      await logError("INFO", "Điều kiện thỏa mãn, thực hiện API");
-      const result = await api_ictu(null, null, "reset");
-      if (result) {
-        await AsyncStorage.setItem("lastRunDate", new Date().toDateString());
-        await logError("INFO", "Tác vụ nền hoàn thành thành công");
-        return BackgroundFetch.BackgroundFetchResult.NewData;
-      }
-    } else {
-      await logError("INFO", "Điều kiện chưa thỏa mãn, bỏ qua tác vụ");
-    }
-
+    await logInfo("Background fetch task completed: No data (not time to run)");
     return BackgroundFetch.BackgroundFetchResult.NoData;
   } catch (error) {
-    await logError("ERROR", `Lỗi trong tác vụ nền: ${error.message}`);
+    await logError(
+      "ERROR",
+      `backgroundTasks.js: Background fetch task error: ${error}`
+    );
     return BackgroundFetch.BackgroundFetchResult.Failed;
   }
 });
 
-// Hàm đăng ký tác vụ nền
-export const registerBackgroundTask = async () => {
+const handleAppStateChange = async (nextAppState) => {
+  if (nextAppState === "active" && (await isTimeToRun())) {
+    await runAPITask();
+  }
+};
+
+export const registerBackgroundTaskApi = async () => {
   try {
-    await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
-      minimumInterval: 60 * 15, // 15 phút
-      stopOnTerminate: false,
-      startOnBoot: true,
-    });
-    await logError("INFO", "Đã đăng ký tác vụ nền thành công");
-  } catch (error) {
-    await logError("ERROR", `Lỗi khi đăng ký tác vụ nền: ${error.message}`);
-  }
-};
-
-// Hàm kiểm tra trạng thái tác vụ nền
-export const checkBackgroundTaskStatus = async () => {
-  const status = await BackgroundFetch.getStatusAsync();
-  await logError("INFO", `Trạng thái tác vụ nền: ${BackgroundFetch.BackgroundFetchStatus[status]}`);
-  return status;
-};
-
-// Hàm này nên được gọi khi ứng dụng khởi động
-export const setupBackgroundTask = async () => {
-  await registerBackgroundTask();
-  await checkBackgroundTaskStatus();
-};
-
-// Thêm listener cho trạng thái ứng dụng
-AppState.addEventListener("change", async (nextAppState) => {
-  if (nextAppState === "active") {
-    await logError("INFO", "Ứng dụng trở lại trạng thái active");
-    if (await shouldRunTask()) {
-      await api_ictu(null, null, "reset");
+    if (!(await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK))) {
+      await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
+        minimumInterval: MINIMUM_INTERVAL,
+        stopOnTerminate: false,
+        startOnBoot: true,
+      });
+      AppState.addEventListener("change", handleAppStateChange);
+      await logInfo("Background task registered successfully");
+    } else {
+      await logInfo("Background task already registered");
     }
+  } catch (error) {
+    await logError(
+      "ERROR",
+      `backgroundTasks.js: Error registering background task: ${error}`
+    );
   }
-});
+};
+
+export const unregisterBackgroundTask = async () => {
+  try {
+    if (await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK)) {
+      await BackgroundFetch.unregisterTaskAsync(BACKGROUND_FETCH_TASK);
+      AppState.removeEventListener("change", handleAppStateChange);
+      await logInfo("Background task unregistered successfully");
+    } else {
+      await logInfo("No background task to unregister");
+    }
+  } catch (error) {
+    await logError(
+      "ERROR",
+      `backgroundTasks.js: Error unregistering background task: ${error}`
+    );
+  }
+};
+
+export const checkLastRunAndStatus = async () => {
+  try {
+    const lastRunDate = await AsyncStorage.getItem(LAST_RUN_DATE_KEY);
+    const lastUpdateTime = await AsyncStorage.getItem(LAST_UPDATE_KEY);
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(
+      BACKGROUND_FETCH_TASK
+    );
+
+    await logInfo(
+      `Task status: ${
+        isRegistered ? "Registered" : "Not registered"
+      }, Last run: ${lastRunDate}, Last update: ${lastUpdateTime}`
+    );
+
+    return {
+      isRegistered,
+      lastRunDate,
+      lastUpdateTime,
+    };
+  } catch (error) {
+    await logError(
+      "ERROR",
+      `backgroundTasks.js: Error checking task status: ${error}`
+    );
+    return null;
+  }
+};
+
+export const scheduleTaskCheck = () => {
+  setInterval(async () => {
+    const status = await checkLastRunAndStatus();
+    if (status && !status.isRegistered) {
+      await logError(
+        "WARNING",
+        "Background task is not registered. Attempting to re-register."
+      );
+      await registerBackgroundTaskApi();
+    }
+  }, 24 * 60 * 60 * 1000); // Kiểm tra mỗi 24 giờ
+};
+
+export const runAPIIfNeeded = async () => {
+  if (await isTimeToRun()) {
+    await runAPITask();
+  }
+};

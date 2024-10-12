@@ -13,7 +13,6 @@ import {
 import { TouchableOpacity } from "react-native-gesture-handler";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useTheme } from "../components/ThemeProvider";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import ModalComponent from "../components/ModalComponent";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -68,7 +67,7 @@ const AddNoteScreen = ({ navigation }) => {
       const remainingTime = calculateRemainingTime();
       if (showNotification && remainingTime > 0) {
         const notificationId = await scheduleLocalNotification(
-          title,
+          "Nhắc nhở ghi chú: " + title,
           content,
           remainingTime
         );

@@ -12,14 +12,13 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
 import { firebaseConfig } from "./firebaseConfig";
-import { sendImmediateNotification } from "./LocalNotification";
+import { logError } from "./SaveLogs";
 
 const firebaseApp = initializeApp(firebaseConfig);
 export const db = getFirestore(firebaseApp);
 
 const KEY_STORAGE_NAME = "user_encryption_key";
 const SYNC_COLLECTION_NAME = "user_data_sync";
-const KEY_SYNC_GHI_CHU = "userGhiChu";
 
 // Hàm tạo khóa mã hóa
 export const generateEncryptionKey = async () => {
@@ -29,7 +28,7 @@ export const generateEncryptionKey = async () => {
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
   } catch (error) {
-    console.error("Error generating encryption key:", error);
+    logError("ERROR", "firestore.jsx-33: Lỗi khi tạo khóa mã hóa:" + error);
     throw error;
   }
 };
@@ -44,7 +43,10 @@ export const getUserKey = async () => {
     }
     return storedKey;
   } catch (error) {
-    console.error("Error managing user key:", error);
+    logError(
+      "ERROR",
+      "firestore.jsx-48: Lỗi khi lấy hoặc tạo khóa người dùng:" + error
+    );
     throw error;
   }
 };
@@ -61,7 +63,7 @@ export const encryptData = async (data, key) => {
     const base64Data = btoa(String.fromCharCode(...encodedData));
     return `${encryptedData}:${base64Data}`;
   } catch (error) {
-    console.error("Error encrypting data:", error);
+    logError("ERROR", "firestore.jsx-66: Lỗi khi mã hóa dữ liệu:" + error);
     throw error;
   }
 };
@@ -83,7 +85,7 @@ export const decryptData = async (encryptedData, key) => {
     }
     return JSON.parse(jsonString);
   } catch (error) {
-    console.error("Error decrypting data:", error);
+    logError("ERROR", "firestore.jsx-88: Lỗi khi giải mã dữ liệu:" + error);
     throw error;
   }
 };
@@ -96,10 +98,9 @@ export const addEncryptedData = async (collectionName, data) => {
     const docRef = await addDoc(collection(db, collectionName), {
       encryptedData,
     });
-    console.log("Document written with ID: ", docRef.id);
     return docRef.id;
   } catch (e) {
-    console.error("Error adding document: ", e);
+    logError("ERROR", "firestore.jsx-103: Lỗi khi thêm dữ liệu:" + e);
     throw e;
   }
 };
@@ -114,11 +115,11 @@ export const readAndDecryptData = async (collectionName, docId) => {
       const encryptedData = docSnap.data().encryptedData;
       return await decryptData(encryptedData, key);
     } else {
-      console.log("No such document!");
+      logError("INFO", "firestore.jsx-118: Không tìm thấy dữ liệu");
       return null;
     }
   } catch (e) {
-    console.error("Error reading document: ", e);
+    logError("ERROR", "firestore.jsx-122: Lỗi khi đọc dữ liệu:" + e);
     throw e;
   }
 };
@@ -129,9 +130,8 @@ export const updateEncryptedData = async (collectionName, docId, newData) => {
   const encryptedData = await encryptData(newData, key);
   try {
     await updateDoc(doc(db, collectionName, docId), { encryptedData });
-    console.log("Document successfully updated");
   } catch (e) {
-    console.error("Error updating document: ", e);
+    logError("ERROR", "firestore.jsx-134: Lỗi khi cập nhật dữ liệu:" + e);
     throw e;
   }
 };
@@ -140,9 +140,8 @@ export const updateEncryptedData = async (collectionName, docId, newData) => {
 export const deleteData = async (collectionName, docId) => {
   try {
     await deleteDoc(doc(db, collectionName, docId));
-    console.log("Document successfully deleted");
   } catch (e) {
-    console.error("Error removing document: ", e);
+    logError("ERROR", "firestore.jsx-144: Lỗi khi xóa dữ liệu:" + e);
     throw e;
   }
 };
@@ -157,12 +156,11 @@ export const syncAsyncStorageToFirestore = async (userId) => {
       await setDoc(doc(db, SYNC_COLLECTION_NAME, userId), {
         encryptedData,
       });
-      console.log("userGhiChu data synchronized to Firestore successfully");
     } else {
-      console.log("No userGhiChu data found in AsyncStorage");
+      logError("INFO", "firestore.jsx-160: Không tìm thấy dữ liệu để đồng bộ");
     }
   } catch (error) {
-    console.error("Error syncing userGhiChu to Firestore:", error);
+    logError("ERROR", "firestore.jsx-163: Lỗi khi đồng bộ dữ liệu:" + error);
     throw error;
   }
 };
@@ -178,11 +176,11 @@ export const getDecryptedSyncDataFromFirestore = async (userId) => {
       const encryptedData = docSnap.data().encryptedData;
       return await decryptData(encryptedData, key);
     } else {
-      console.log("No synchronized data found for this user");
+      logError("INFO", "firestore.jsx-179: Không tìm thấy dữ liệu đồng bộ");
       return null;
     }
   } catch (error) {
-    console.error("Error getting decrypted sync data from Firestore:", error);
+    logError("ERROR", "firestore.jsx-183: Lỗi khi lấy dữ liệu đồng bộ:" + error);
     throw error;
   }
 };
@@ -193,34 +191,11 @@ export const restoreSyncDataToAsyncStorage = async (userId) => {
     const decryptedData = await getDecryptedSyncDataFromFirestore(userId);
     if (decryptedData) {
       await AsyncStorage.setItem("userGhiChu", JSON.stringify(decryptedData));
-      console.log("userGhiChu data restored to AsyncStorage successfully");
     } else {
-      console.log("No synchronized userGhiChu data found for this user");
+      logError("INFO", "firestore.jsx-195: Không tìm thấy dữ liệu đồng bộ");
     }
   } catch (error) {
-    console.error("Error restoring userGhiChu data to AsyncStorage:", error);
-    throw error;
-  }
-};
-
-export const SyncGhiChu = async () => {
-  try {
-    const userId = await AsyncStorage.getItem("username");
-    if (userId) {
-      const syncStatus = await AsyncStorage.getItem("SyncGhiChuStatus");
-      if (syncStatus === "true") {
-        await restoreSyncDataToAsyncStorage(userId);
-      } else {
-        await syncAsyncStorageToFirestore(userId);
-        await AsyncStorage.setItem("SyncGhiChuStatus", "true");
-        await sendImmediateNotification(
-          "Thông báo đồng bộ dữ liệu",
-          "Dữ liệu ghi chú đã được đồng bộ thành công lên máy chủ của chúng tôi!"
-        );
-      }
-    }
-  } catch (error) {
-    console.error("Error syncing userGhiChu data:", error);
+    logError("ERROR", "firestore.jsx-198: Lỗi khi khôi phục dữ liệu:" + error);
     throw error;
   }
 };

@@ -28,10 +28,9 @@ const registerBackgroundFetchAsync = async () => {
       startOnBoot: true,
     });
   } catch (err) {
-    await logError("Lỗi khi đăng ký task background fetch:", err);
-    Alert.alert(
-      "Lỗi",
-      "Không thể đăng ký task background fetch: " + err.message
+    await logError(
+      "ERROR",
+      "LocalNotification.jsx-33: Lỗi khi đăng ký task background fetch:" + err
     );
   }
 };
@@ -110,8 +109,10 @@ export const initializeNotifications = async () => {
         await sendTokenToServer(token);
       }
     } catch (error) {
-      await logError("Lỗi khi lấy token thông báo:", error);
-      Alert.alert("Lỗi khi lấy token:", error.message);
+      await logError(
+        "ERROR",
+        "LocalNotification.jsx-114: Lỗi khi lấy token:" + error
+      );
     }
   }
 };
@@ -143,8 +144,10 @@ export const scheduleLocalNotification = async (title, body, triggerTime) => {
     });
     return notificationId;
   } catch (error) {
-    await logError("Lỗi khi lên lịch thông báo:", error);
-    Alert.alert("Lỗi khi lên lịch thông báo:", error.message);
+    await logError(
+      "ERROR",
+      "LocalNotification.jsx-149: Lỗi khi lên lịch thông báo:" + error
+    );
   }
 };
 
@@ -157,8 +160,10 @@ export const cancelAllClassNotifications = async () => {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (error) {
-    await logError("Lỗi khi hủy thông báo:", error);
-    Alert.alert("Lỗi khi hủy thông báo:", error.message);
+    await logError(
+      "ERROR",
+      "LocalNotification.jsx-165: Lỗi khi hủy thông báo:" + error
+    );
     throw error;
   }
 };
@@ -267,9 +272,4 @@ export const checkBackgroundFetchStatus = async () => {
   const isRegistered = await TaskManager.isTaskRegisteredAsync(
     BACKGROUND_FETCH_TASK
   );
-  await logError(
-    "Background fetch status:",
-    BackgroundFetch.BackgroundFetchStatus[status]
-  );
-  await logError("Task registered:", isRegistered);
 };

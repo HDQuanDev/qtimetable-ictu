@@ -36,12 +36,18 @@ export const sendTokenToServer = async (token) => {
     }
 
     const result = await response.json();
-    await logError("Token sent to server", result);
+    await logError(
+      "SUCCESS",
+      "token.jsx-41: Đã gửi token đến máy chủ: " + result.message
+    );
 
     // Save the token locally to avoid sending it again
     await AsyncStorage.setItem("expoPushToken", token);
   } catch (error) {
-    await logError("Lỗi khi gửi token đến máy chủ:", error);
+    await logError(
+      "ERROR",
+      "token.jsx-49: Lỗi khi gửi token đến máy chủ: " + error
+    );
     throw error;
   }
 };

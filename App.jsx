@@ -17,12 +17,18 @@ import {
   initializeNotifications,
   useNotificationListener,
 } from "./components/LocalNotification";
-import { setupBackgroundTask } from "./components/backgroundTasks";
+import {
+  registerBackgroundTaskApi,
+  scheduleTaskCheck,
+  runAPIIfNeeded,
+  checkLastRunAndStatus,
+} from "./components/backgroundTasks";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { logError } from "./components/SaveLogs";
-import { SyncGhiChu } from "./components/firestore";
+import { SyncGhiChu } from "./components/SyncGhiChu";
+import LoadingSpinner from "./screens/LoadingSpinner";
 
-const Stack = createStackNavigator(); // Khởi tạo Stack Navigator
+const Stack = createStackNavigator();
 
 // Định nghĩa cấu hình cho Toast
 const toastConfig = {
@@ -75,17 +81,34 @@ function Navigation() {
     fetchIntroStatus();
   }, []);
 
-  const handleIntroComplete = () => {
-    setIntroCompleted(true);
+  const handleIntroComplete = async () => {
+    try {
+      await AsyncStorage.setItem("@intro_completed", "true");
+      setIntroCompleted(true);
+    } catch (error) {
+      console.error("Error saving intro status:", error);
+    }
   };
 
   if (isLoading || introCompleted === null) {
-    return null; // Hoặc bạn có thể hiển thị một spinner hoặc màn hình loading
+    return <LoadingSpinner />;
   }
 
   return (
     <Stack.Navigator>
-      {isLoggedIn ? (
+      {!introCompleted ? (
+        <Stack.Screen name="Intro" options={{ headerShown: false }}>
+          {(props) => (
+            <IntroScreen {...props} onIntroComplete={handleIntroComplete} />
+          )}
+        </Stack.Screen>
+      ) : !isLoggedIn ? (
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+      ) : (
         <>
           <Stack.Screen
             name="MainContent"
@@ -95,30 +118,16 @@ function Navigation() {
           <Stack.Screen
             name="AddNote"
             component={AddNoteScreen}
-            options={{
-              headerShown: false,
-            }}
+            options={{ headerShown: false }}
           />
         </>
-      ) : introCompleted ? (
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
-      ) : (
-        <Stack.Screen name="Intro" options={{ headerShown: false }}>
-          {(props) => (
-            <IntroScreen {...props} onIntroComplete={handleIntroComplete} />
-          )}
-        </Stack.Screen>
       )}
     </Stack.Navigator>
   );
 }
 
-// Hàm chính của ứng dụng
-export default function App() {
+function AppContent() {
+  const { isLoggedIn, isLoading } = useAuth();
   const [modalProps, setModalProps] = useState(null);
   const [notification, setNotification] = useState(null);
   const [showFirstTime, setShowFirstTime] = useState(null);
@@ -130,39 +139,45 @@ export default function App() {
       const updateInfo = await checkForUpdate();
       setModalProps(updateInfo);
     };
-    handleCheckForUpdate();
-  }, []);
-
-  // Khởi tạo thông báo
-  useEffect(() => {
     const setupNotification = async () => {
       try {
         await initializeNotifications();
-        await setupBackgroundTask();
       } catch (error) {
         Alert.alert("Lỗi", "Không thể khởi tạo thông báo: " + error.message);
         await logError("Lỗi khi khởi tạo thông báo:", error);
       }
     };
+    handleCheckForUpdate();
     setupNotification();
   }, []);
 
-  useEffect(() => {
-    const syncData = async () => {
-      await SyncGhiChu();
-    };
-    syncData();
-  }, []);
-  
-  useEffect(() => {
-    const checkAllNotifications = async () => {
-      await scheduleAllNotifications();
+  // Hàm khởi tạo các task nền
+  async function initializeBackgroundTasks() {
+    await registerBackgroundTaskApi();
+    scheduleTaskCheck();
+    await checkLastRunAndStatus();
+  }
 
-      // const userData_LichThi = await AsyncStorage.getItem("userGhiChu");
-      // console.log(userData_LichThi);
+  // Kiểm tra cập nhật dữ liệu
+  useEffect(() => {
+    const initialize = async () => {
+      if (isLoggedIn) {
+        const syncData = async () => {
+          await SyncGhiChu();
+        };
+        const checkAllNotifications = async () => {
+          await scheduleAllNotifications();
+        };
+        const registerBackgroundTask = async () => {
+          await initializeBackgroundTasks();
+        };
+        await registerBackgroundTask();
+        await checkAllNotifications();
+        await syncData();
+      }
     };
-    checkAllNotifications();
-  }, []);
+    initialize();
+  }, [isLoggedIn]);
 
   // Lắng nghe thông báo
   useNotificationListener((notification) => {
@@ -179,7 +194,7 @@ export default function App() {
         const [day, month, year] = date.split("/");
         const lastUpdateDate = new Date(
           parseInt(year),
-          parseInt(month) - 1, // Tháng trong JavaScript bắt đầu từ 0
+          parseInt(month) - 1,
           parseInt(day),
           parseInt(hours),
           parseInt(minutes),
@@ -199,20 +214,18 @@ export default function App() {
   // Hiển thị modal chào mừng lần đầu khi cài app
   useEffect(() => {
     const checkFirstTime = async () => {
-      //check login
-      const isLoggedIn = await AsyncStorage.getItem("isLoggedIn");
       if (!isLoggedIn) return;
-      const firstTime = await AsyncStorage.getItem("firstTime_v2.stable");
+      const firstTime = await AsyncStorage.getItem("firstTime_v2.5.stable");
       if (!firstTime) {
         setShowFirstTime({
           showModal: true,
           title: "Ứng dụng đã được cập nhật",
           content:
-            "Chào mừng bạn đến với phiên bản V2.0 của ứng dụng, ở phiên bản này, chúng tôi đã cải thiện giao diện và tối ưu hóa hiệu suất ứng dụng. Để ứng dụng hoạt động tốt nhất, vui lòng cập nhật dữ liệu mới nhất bằng cách sử dụng nút reset ở trên góc!",
+            "Chào mừng bạn đến với phiên bản V2.5 của ứng dụng, ở phiên bản này, chúng tôi đã cải thiện giao diện và tối ưu hóa hiệu suất ứng dụng và thêm 1 số tính năng mới. Để ứng dụng hoạt động tốt nhất, vui lòng cập nhật dữ liệu mới nhất bằng cách sử dụng nút reset ở trên góc!",
           actionText: "Đã hiểu",
           actionColor: "bg-blue-600",
           onActionPress: async () => {
-            await AsyncStorage.setItem("firstTime_v2.stable", "false");
+            await AsyncStorage.setItem("firstTime_v2.5.stable", "false");
             setShowFirstTime(null);
           },
           closeText: "Hủy",
@@ -221,60 +234,73 @@ export default function App() {
       }
     };
     checkFirstTime();
-  }, []);
+  }, [isLoggedIn]);
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    <>
+      <NavigationContainer>
+        {modalProps && (
+          <ModalComponent
+            visible={modalProps.showModal}
+            onClose={() => setModalProps(null)}
+            title={modalProps.title}
+            content={modalProps.content}
+            closeText={modalProps.closeText}
+            closeColor={modalProps.closeColor}
+            actionText={modalProps.actionText}
+            actionColor={modalProps.actionColor}
+            onActionPress={modalProps.onActionPress}
+          />
+        )}
+        {showFirstTime && (
+          <ModalComponent
+            visible={showFirstTime.showModal}
+            onClose={() => setShowFirstTime(null)}
+            title={showFirstTime.title}
+            content={showFirstTime.content}
+            closeText={showFirstTime.closeText}
+            closeColor={showFirstTime.closeColor}
+            actionText={showFirstTime.actionText}
+            actionColor={showFirstTime.actionColor}
+            onActionPress={showFirstTime.onActionPress}
+          />
+        )}
+        {notification && (
+          <ModalComponent
+            visible={notification}
+            onClose={() => setNotification(false)}
+            title="Cảnh báo!!!"
+            content="Dữ liệu của bạn đã cũ hơn ba ngày, vui lòng cập nhật dữ liệu mới nhất bằng cách sử dụng nút reset ở trên góc!"
+            closeText="Đồng ý"
+            closeColor="bg-red-600"
+          />
+        )}
+        {showNotification && (
+          <ModalComponent
+            visible={showNotification}
+            onClose={() => setShowNotification(false)}
+            title={showNotification.request.content.title}
+            content={showNotification.request.content.body}
+            closeText="Đóng"
+            closeColor="bg-gray-700"
+          />
+        )}
+        <Navigation />
+      </NavigationContainer>
+      <Toast config={toastConfig} />
+    </>
+  );
+}
+
+export default function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <NavigationContainer>
-          {modalProps && (
-            <ModalComponent
-              visible={modalProps.showModal}
-              onClose={() => setModalProps(null)}
-              title={modalProps.title}
-              content={modalProps.content}
-              closeText={modalProps.closeText}
-              closeColor={modalProps.closeColor}
-              actionText={modalProps.actionText}
-              actionColor={modalProps.actionColor}
-              onActionPress={modalProps.onActionPress}
-            />
-          )}
-          {showFirstTime && (
-            <ModalComponent
-              visible={showFirstTime.showModal}
-              onClose={() => setShowFirstTime(null)}
-              title={showFirstTime.title}
-              content={showFirstTime.content}
-              closeText={showFirstTime.closeText}
-              closeColor={showFirstTime.closeColor}
-              actionText={showFirstTime.actionText}
-              actionColor={showFirstTime.actionColor}
-              onActionPress={showFirstTime.onActionPress}
-            />
-          )}
-          {notification && (
-            <ModalComponent
-              visible={notification}
-              onClose={() => setNotification(false)}
-              title="Cảnh báo!!!"
-              content="Dữ liệu của bạn đã cũ hơn ba ngày, vui lòng cập nhật dữ liệu mới nhất bằng cách sử dụng nút reset ở trên góc!"
-              closeText="Đồng ý"
-              closeColor="bg-red-600"
-            />
-          )}
-          {showNotification && (
-            <ModalComponent
-              visible={showNotification}
-              onClose={() => setShowNotification(false)}
-              title={showNotification.request.content.title}
-              content={showNotification.request.content.body}
-              closeText="Đóng"
-              closeColor="bg-gray-700"
-            />
-          )}
-          <Navigation />
-        </NavigationContainer>
-        <Toast config={toastConfig} />
+        <AppContent />
       </ThemeProvider>
     </AuthProvider>
   );

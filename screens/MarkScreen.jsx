@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../components/ThemeProvider";
+import { useFocusEffect } from "@react-navigation/native";
 
 const Tab = createMaterialTopTabNavigator(); // Khởi tạo Tab Navigator
 
@@ -46,9 +47,11 @@ const MarkScreen = () => {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
   // Hàm xử lý làm mới dữ liệu
   const handleRefresh = () => {

@@ -3,9 +3,11 @@ import {
   scheduleLocalNotification,
   scheduleExamNotifications,
   cancelAllClassNotifications,
+  sendImmediateNotification,
 } from "./LocalNotification";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { logError } from "./SaveLogs";
+import moment from "moment-timezone";
 
 // Định nghĩa các khung giờ học trong ngày
 const periods = {
@@ -65,15 +67,11 @@ const checkScheduleNotifications = async () => {
     const scheduledNotifications = await AsyncStorage.getItem(
       "scheduledNotifications"
     );
-    if (scheduledNotifications) {
-      return true;
-    } else {
-      return false;
-    }
+    return scheduledNotifications === "true";
   } catch (error) {
     await logError(
       "ERROR",
-      "ScheduleNotification: Lỗi khi kiểm tra thông báo: " + error
+      "ScheduleNotification-77: Lỗi khi kiểm tra thông báo: " + error
     );
     return false;
   }
@@ -81,181 +79,216 @@ const checkScheduleNotifications = async () => {
 
 export const scheduleAllNotifications = async () => {
   try {
-    if (await checkScheduleNotifications()) return;
-    await cancelAllClassNotifications();
-    const data = await AsyncStorage.getItem("userData_ThoiKhoaBieu");
-    if (!data) return;
-    const userData = JSON.parse(data);
-    if (!Array.isArray(userData)) {
-      throw new Error("Dữ liệu thời khóa biểu không phải là mảng");
-    }
-    const currentDate = new Date();
-    const classesByDay = {};
-    for (const weekData of userData) {
-      for (const item of weekData.data) {
-        const dateTimeStart = getDateTimeStart(
-          weekData.start_date,
-          item["thu"],
-          item["tiet_hoc"]
-        );
-        if (dateTimeStart > currentDate) {
-          const formattedDate = formatDateTime(dateTimeStart);
-          const dateKey = formattedDate.split("T")[0];
+    const isScheduled = await checkScheduleNotifications();
+    if (!isScheduled) {
+      await cancelAllClassNotifications();
+      const data = await AsyncStorage.getItem("userData_ThoiKhoaBieu");
+      if (!data) return;
+      const userData = JSON.parse(data);
+      if (!Array.isArray(userData)) {
+        throw new Error("Dữ liệu thời khóa biểu không phải là mảng");
+      }
+      const currentDate = new Date();
+      const classesByDay = {};
+      for (const weekData of userData) {
+        for (const item of weekData.data) {
+          const dateTimeStart = getDateTimeStart(
+            weekData.start_date,
+            item["thu"],
+            item["tiet_hoc"]
+          );
+          if (dateTimeStart > currentDate) {
+            const formattedDate = formatDateTime(dateTimeStart);
+            const dateKey = formattedDate.split("T")[0];
 
-          if (!classesByDay[dateKey]) {
-            classesByDay[dateKey] = [];
-          }
-          classesByDay[dateKey].push(item);
-          try {
-            await scheduleClassNotifications(
-              item["lop_hoc_phan"],
-              new Date(formattedDate),
-              item["dia_diem"]
-            );
-          } catch (error) {
-            await logError(
-              "ERROR",
-              "ScheduleNotification-120: Lỗi khi lên lịch thông báo: " + error
-            );
+            if (!classesByDay[dateKey]) {
+              classesByDay[dateKey] = [];
+            }
+            classesByDay[dateKey].push(item);
+            try {
+              await scheduleClassNotifications(
+                item["lop_hoc_phan"],
+                new Date(formattedDate),
+                item["dia_diem"]
+              );
+            } catch (error) {
+              await logError(
+                "ERROR",
+                "ScheduleNotification-119: Lỗi khi lên lịch thông báo: " + error
+              );
+            }
           }
         }
       }
-    }
 
-    const noClassMessages = [
-      "Ngày mai bạn không có lớp! Time to `document.body.style.backgroundColor = 'lightgreen';`",
-      "Tuyệt, ngày mai bạn không có lớp! Hãy `performHappyDance();`",
-      "Nhìn này, không có lớp ngày mai! Thời gian để `getPopcorn() && watchMovies(true);`",
-      "Thật may, ngày mai bạn không phải đến lớp. Hãy `makeYourselfComfy(true);`",
-      "Giỏi lắm, không có lớp ngày mai! Bây giờ `let's goOutside && feelTheSun();`",
-      "Ngày mai bạn không có lịch học? Đây là cơ hội để `visitFriends() || burnMidnightOil();`",
-      "Tuyệt vời, không có lớp ngày mai! Hãy `breakFromRoutine(true);`",
-      "Wow, không có lớp ngày mai! Hãy `celebrateWithIceCream();`",
-      "Ngày mai bạn không có lớp? Thời gian để `getCozy() && read();`",
-      "Không có lớp ngày mai! Bây giờ `let's goto('beach') || goto('park');`",
-      "Tuyệt, không có lớp ngày mai! Hãy `collectPets() && playWithThem();`",
-      "Wow, không có lớp ngày mai! Bây giờ `let's rentAMovie() && binge();`",
-      "Ngày mai bạn không có lớp? Thời gian để `getCreative() && expressYourself();`",
-      "Không có lớp ngày mai! Bây giờ `let's goShopping() && buySomethingNice();`",
-      "Tuyệt, không có lớp ngày mai! Hãy `tryNewRecipe() && cookSomethingYummy();`",
-      "Wow, không có lớp ngày mai! Hãy `getCrafty() && makeSomethingCool();`",
-      "Ngày mai bạn không có lớp? Thời gian để `getLostInAGoodBook() && read();`",
-      "Không có lớp ngày mai! Bây giờ `let's goForAWalk() && enjoyTheOutdoors();`",
-      "Tuyệt, không có lớp ngày mai! Hãy `getArtsy() && createSomethingBeautiful();`",
-      "Wow, không có lớp ngày mai! Hãy `getActive() && doSomethingFun();`",
-      "Ngày mai bạn không có lớp? Thời gian để `getOrganized() && declutter();`",
-      "Không có lớp ngày mai! Bây giờ `let's goForABikeRide() && feelTheWind();`",
-      "Tuyệt, không có lớp ngày mai! Hãy `getInspired() && doSomethingCreative();`",
-      "Wow, không có lớp ngày mai! Hãy `getMoving() && danceAround();`",
-      "Ngày mai bạn không có lớp? Thời gian để `getLostInMusic() && singAlong();`",
-    ];
+      const noClassMessages = [
+        "Ting ting! Ngày mai không có lớp nè! Hãy `setMood('siêu vui') && danceAroundTheRoom();`",
+        "Ối giời ơi, ngày mai nghỉ học kìa! Đến lúc `launchConfetti() && shoutHooray();`",
+        "Tin hot: Ngày mai không có lớp! Mau `prepareSnacks() && bingeWatchFavoriteSeries();`",
+        "Ê psst, ngày mai nghỉ học đấy! Hãy `rollOutOfBed.late() && enjoyPajamaDay();`",
+        "Tin vui: Ngày mai không có lớp! Đến lúc `activateSlothMode() && embraceLaziness();`",
+        "Ting tong! Không có lớp ngày mai nha! Mau `planAdventure() || buildBlanketFort();`",
+        "Tada! Ngày mai được nghỉ học! Hãy `unleashCreativity() && makeAGlorifulMess();`",
+        "Ối chu choa, ngày mai không có lớp kìa! Đến lúc `orderPizza() && inviteFriendsOver();`",
+        "Tin ngọt ngào: Ngày mai nghỉ học! Mau `grabFavoriteBook() && readUntilSunrise();`",
+        "Ê bạn ơi, ngày mai không có lớp đâu! Hãy `packBackpack() && goOnMiniAdventure();`",
+        "Tin khủng: Ngày mai được nghỉ! Đến lúc `adoptTemporaryCat() && becomeABuddyForADay();`",
+        "Ting ting ting! Không có lớp ngày mai nha! Mau `createMovieMarathon() && inviteTheBestie();`",
+        "Ố la la, ngày mai nghỉ học! Hãy `turnLivingRoomIntoArtStudio() && paintLikeAnArtist();`",
+        "Tin vui nè: Ngày mai không có lớp! Đến lúc `visitLocalCafe() && tryEveryPastry();`",
+        "Ê này, ngày mai được nghỉ đấy! Mau `inventNewRecipe() && hostMasterchefCompetition();`",
+        "Tin hot hòn họt: Ngày mai không có lớp! Hãy `transformIntoSuperHero() && saveTheDay();`",
+        "Ối giời, ngày mai nghỉ học kìa! Đến lúc `buildTimeMachine() && visitDinosaurs();`",
+        "Tin vui nè bạn ơi: Ngày mai không có lớp! Mau `organizeFlashMob() && danceInPublic();`",
+        "Ting tong! Ngày mai được nghỉ nha! Hãy `learnMagicTricks() && amazeFriends();`",
+        "Ê psst, ngày mai không có lớp đâu! Đến lúc `buildRobotFriend() && teachItToLaugh();`",
+        "Tin khủng: Ngày mai nghỉ học! Mau `hostPajamaParty() && stayUpAllNight();`",
+        "Ố la la, ngày mai không có lớp kìa! Hãy `learnNewLanguage() && orderFoodInIt();`",
+        "Tin ngọt ngào: Ngày mai được nghỉ! Đến lúc `becomeYouTuber() && goViral();`",
+        "Ting ting ting! Không có lớp ngày mai nha! Mau `writeFunnyStory() && performItForFamily();`",
+        "Ối chu choa, ngày mai nghỉ học! Hãy `createMusicVideo() && becomeTikTokStar();`",
+      ];
 
-    // Lên lịch thông báo cho 30 ngày tới
-    for (let i = 1; i <= 30; i++) {
-      try {
-        const notificationDate = new Date(currentDate);
-        notificationDate.setDate(notificationDate.getDate() + i);
-        const dateKey = formatDateTime(notificationDate).split("T")[0];
-        const notificationTime = new Date(notificationDate);
-        notificationTime.setDate(notificationTime.getDate() - 1);
-        notificationTime.setHours(20, 0, 0, 0);
+      // Lên lịch thông báo cho 30 ngày tới
+      for (let i = 1; i <= 30; i++) {
+        try {
+          const notificationDate = new Date(currentDate);
+          notificationDate.setDate(notificationDate.getDate() + i);
+          const dateKey = formatDateTime(notificationDate).split("T")[0];
+          const notificationTime = new Date(notificationDate);
+          notificationTime.setDate(notificationTime.getDate() - 1);
+          notificationTime.setHours(20, 0, 0, 0);
 
-        if (notificationTime > currentDate) {
-          let message;
-          if (classesByDay[dateKey] && classesByDay[dateKey].length > 0) {
-            message = `Ngày mai bạn có ${classesByDay[dateKey].length} lịch học cần thực hiện, hãy kiểm tra ngay lịch học của mình!`;
-          } else {
-            // Chọn một câu thông báo vui vẻ từ artifact "no-class-notification-messages"
-            const randomIndex = Math.floor(
-              Math.random() * noClassMessages.length
-            );
-            let messageTemplate = noClassMessages[randomIndex];
+          if (notificationTime > currentDate) {
+            let message;
+            if (classesByDay[dateKey] && classesByDay[dateKey].length > 0) {
+              message = `Ngày mai bạn có ${classesByDay[dateKey].length} lịch học cần thực hiện, hãy kiểm tra ngay lịch học của mình!`;
+            } else {
+              // Chọn một câu thông báo vui vẻ từ artifact "no-class-notification-messages"
+              const randomIndex = Math.floor(
+                Math.random() * noClassMessages.length
+              );
+              let messageTemplate = noClassMessages[randomIndex];
 
-            // Xử lý các ký tự đặc biệt trong thông báo
-            messageTemplate = messageTemplate.replace(/</g, "&lt;");
-            messageTemplate = messageTemplate.replace(/>/g, "&gt;");
-            messageTemplate = messageTemplate.replace(/"/g, "&quot;");
-            messageTemplate = messageTemplate.replace(/'/g, "&#39;");
-            message = messageTemplate;
-          }
+              // Xử lý các ký tự đặc biệt trong thông báo
+              messageTemplate = messageTemplate.replace(/</g, "&lt;");
+              messageTemplate = messageTemplate.replace(/>/g, "&gt;");
+              messageTemplate = messageTemplate.replace(/"/g, "&quot;");
+              messageTemplate = messageTemplate.replace(/'/g, "&#39;");
+              message = messageTemplate;
+            }
 
-          const secondsUntilNotification = Math.max(
-            0,
-            Math.floor(
-              (notificationTime.getTime() - new Date().getTime()) / 1000
-            )
-          );
-          await scheduleLocalNotification(
-            "Thông báo lịch học ngày mai",
-            message,
-            secondsUntilNotification
-          );
-        }
-      } catch (error) {
-        await logError(
-          "ERROR",
-          "ScheduleNotification-199: Lỗi khi lên lịch thông báo: " + error
-        );
-      }
-    }
-
-    const lichthi = await AsyncStorage.getItem("userData_LichThi");
-    if (lichthi) {
-      try {
-        const examData = JSON.parse(lichthi);
-        if (!Array.isArray(examData)) {
-          throw new TypeError("Dữ liệu lichthi không phải là mảng");
-        }
-        for (const item of examData) {
-          const [day, month, year] = item.ngay_thi.split("/");
-          const [startTime] = item.ca_thi.match(/\(([^)]+)\)/)[1].split("-");
-          const [hours, minutes] = startTime.split(":");
-          const date = new Date(year, month - 1, day, hours, minutes);
-          const examStart = `${date.getFullYear()}-${pad(
-            date.getMonth() + 1
-          )}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
-            date.getMinutes()
-          )}:00+07:00`;
-          await scheduleExamNotifications(
-            item.ten_hoc_phan,
-            new Date(examStart),
-            item.phong_thi,
-            item.so_bao_danh
-          );
-          const notificationDate = new Date(date);
-          notificationDate.setDate(notificationDate.getDate() - 1);
-          notificationDate.setHours(20, 0, 0, 0);
-          if (notificationDate > currentDate) {
-            const message = `Ngày mai bạn có lịch thi môn ${item.ten_hoc_phan} vào lúc ${startTime} tại phòng ${item.phong_thi}. Số báo danh của bạn là ${item.so_bao_danh}. Hãy chuẩn bị thật kỹ nhé!`;
             const secondsUntilNotification = Math.max(
               0,
               Math.floor(
-                (notificationDate.getTime() - new Date().getTime()) / 1000
+                (notificationTime.getTime() - new Date().getTime()) / 1000
               )
             );
             await scheduleLocalNotification(
-              "Thông báo lịch thi ngày mai",
+              "Thông báo lịch học ngày mai",
               message,
               secondsUntilNotification
             );
           }
+        } catch (error) {
+          await logError(
+            "ERROR",
+            "ScheduleNotification-198: Lỗi khi lên lịch thông báo: " + error
+          );
+        }
+      }
+
+      const lichthi = await AsyncStorage.getItem("userData_LichThi");
+      if (lichthi) {
+        try {
+          const examData = JSON.parse(lichthi);
+          if (!Array.isArray(examData)) {
+            throw new TypeError("Dữ liệu lichthi không phải là mảng");
+          }
+          for (const item of examData) {
+            const [day, month, year] = item.ngay_thi.split("/");
+            const [startTime] = item.ca_thi.match(/\(([^)]+)\)/)[1].split("-");
+            const [hours, minutes] = startTime.split(":");
+            const date = new Date(year, month - 1, day, hours, minutes);
+            const examStart = `${date.getFullYear()}-${pad(
+              date.getMonth() + 1
+            )}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
+              date.getMinutes()
+            )}:00+07:00`;
+            await scheduleExamNotifications(
+              item.ten_hoc_phan,
+              new Date(examStart),
+              item.phong_thi,
+              item.so_bao_danh
+            );
+            const notificationDate = new Date(date);
+            notificationDate.setDate(notificationDate.getDate() - 1);
+            notificationDate.setHours(20, 0, 0, 0);
+            if (notificationDate > currentDate) {
+              const message = `Ngày mai bạn có lịch thi môn ${item.ten_hoc_phan} vào lúc ${startTime} tại phòng ${item.phong_thi}. Số báo danh của bạn là ${item.so_bao_danh}. Hãy chuẩn bị thật kỹ nhé!`;
+              const secondsUntilNotification = Math.max(
+                0,
+                Math.floor(
+                  (notificationDate.getTime() - new Date().getTime()) / 1000
+                )
+              );
+              await scheduleLocalNotification(
+                "Thông báo lịch thi ngày mai",
+                message,
+                secondsUntilNotification
+              );
+            }
+          }
+        } catch (error) {
+          await logError(
+            "ERROR",
+            "ScheduleNotification-248: Lỗi khi lên lịch thông báo: " + error
+          );
+        }
+      }
+
+      try {
+        const ghichu = await AsyncStorage.getItem("userGhiChu");
+        if (ghichu) {
+          const noteData = JSON.parse(ghichu);
+          if (!Array.isArray(noteData)) {
+            throw new TypeError("Dữ liệu ghi chú không phải là mảng");
+          }
+          for (const item of noteData) {
+            const now = moment().tz("Asia/Ho_Chi_Minh");
+            const selectedDate = moment(item.date).tz("Asia/Ho_Chi_Minh");
+            const duration = moment.duration(selectedDate.diff(now));
+            const remainingTime = Math.floor(duration.asSeconds());
+            if (item.showNotification && remainingTime > 0) {
+              await scheduleLocalNotification(
+                "Nhắc nhở ghi chú: " + item.title,
+                item.content,
+                remainingTime
+              );
+            }
+          }
         }
       } catch (error) {
         await logError(
           "ERROR",
-          "ScheduleNotification-249: Lỗi khi lên lịch thông báo: " + error
+          "ScheduleNotification-276: Lỗi khi lên lịch thông báo: " + error
         );
       }
+
+      await AsyncStorage.setItem("scheduledNotifications", "true");
+      await logError(
+        "INFO",
+        "ScheduleNotification-283: Lên lịch thông báo thành công từ dữ liệu mới"
+      );
+      await sendImmediateNotification(
+        "Thông báo hệ thống",
+        "Đã lên lịch thông báo thành công từ dữ liệu lịch học, lịch thi và ghi chú của bạn!"
+      );
     }
-    await AsyncStorage.setItem("scheduledNotifications", "true");
-    await logError(
-      "INFO",
-      "ScheduleNotification: Lên lịch thông báo thành công từ dữ liệu mới"
-    );
   } catch (error) {
     await logError(
       "ERROR",
-      "ScheduleNotification-256: Lỗi khi lên lịch thông báo: " + error
+      "ScheduleNotification-293: Lỗi khi lên lịch thông báo: " + error
     );
   }
 };

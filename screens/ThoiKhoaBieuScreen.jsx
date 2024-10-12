@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   useWindowDimensions,
+  Dimensions,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Calendar, LocaleConfig } from "react-native-calendars";
@@ -102,8 +103,6 @@ export default function ThoiKhoaBieuScreen() {
   const [selectedExam, setSelectedExam] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [examModalVisible, setExamModalVisible] = useState(false);
-  const [user, setUser] = useState({});
-  const [lastUpdateTime, setLastUpdateTime] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   const { isDarkMode } = useTheme();
@@ -111,6 +110,34 @@ export default function ThoiKhoaBieuScreen() {
   const [userNotes, setUserNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [screenWidth, setScreenWidth] = useState(
+    Dimensions.get("window").width
+  );
+
+  useEffect(() => {
+    const updateLayout = () => {
+      setScreenWidth(Dimensions.get("window").width);
+    };
+
+    Dimensions.addEventListener("change", updateLayout);
+    return () => {
+      Dimensions.removeEventListener("change", updateLayout);
+    };
+  }, []);
+
+  const toggleDropdown = () => setIsOpen(!isOpen);
+
+  const handleOptionSelect = (option) => {
+    if (option === "note") {
+      handleAddNote();
+    } else if (option === "other") {
+      fetchNotes();
+    }
+    setIsOpen(false);
+  };
+
+  const isSmallScreen = screenWidth < 360;
 
   //hàm xử lý thêm ghi chú
   const handleAddNote = () => {
@@ -158,28 +185,27 @@ export default function ThoiKhoaBieuScreen() {
       console.error("Error fetching notes:", error);
     }
   };
-
+  const fetchData = async () => {
+    await fetchScheduleData();
+    await fetchExamData();
+    await fetchNotes();
+  };
   // Hàm xử lý khi quay trở lại
   useFocusEffect(
     useCallback(() => {
       fetchNotes();
+      fetchData();
     }, [])
   );
+
   // Hàm xử lý dữ liệu khi mở ứng dụng
   useEffect(() => {
-    const fetchData = async () => {
-      await fetchScheduleData();
-      await fetchExamData();
-      await fetchUserInfo();
-      await fetchTimeUpdate();
-      await fetchNotes();
-      const today = new Date();
-      today.setHours(today.getHours() + 7);
-      const todayDateString = today.toISOString().split("T")[0];
-      setSelectedDate(todayDateString);
-      setCurrentWeekStartDate(getWeekStartDate(todayDateString));
-    };
     fetchData();
+    const today = new Date();
+    today.setHours(today.getHours() + 7);
+    const todayDateString = today.toISOString().split("T")[0];
+    setSelectedDate(todayDateString);
+    setCurrentWeekStartDate(getWeekStartDate(todayDateString));
   }, []);
 
   // Hàm xử lý lấy dữ liệu thời khóa biểu từ bộ nhớ đệm
@@ -203,30 +229,6 @@ export default function ThoiKhoaBieuScreen() {
       }
     } catch (error) {
       console.error("Error fetching exam data:", error);
-    }
-  };
-
-  // Hàm xử lý lấy thông tin người dùng từ bộ nhớ đệm
-  const fetchUserInfo = async () => {
-    try {
-      const userInfo = await AsyncStorage.getItem("userInfo");
-      if (userInfo) {
-        setUser(JSON.parse(userInfo));
-      }
-    } catch (error) {
-      console.error("Error fetching user info:", error);
-    }
-  };
-
-  // Hàm xử lý lấy thời gian cập nhật cuối cùng từ bộ nhớ đệm
-  const fetchTimeUpdate = async () => {
-    try {
-      const lastUpdate = await AsyncStorage.getItem("lastUpdate");
-      if (lastUpdate) {
-        setLastUpdateTime(lastUpdate);
-      }
-    } catch (error) {
-      console.error("Error fetching last update time:", error);
     }
   };
 
@@ -356,16 +358,8 @@ export default function ThoiKhoaBieuScreen() {
           await AsyncStorage.getItem("password"),
           "reset"
         );
-        await AsyncStorage.setItem(
-          "lastUpdate",
-          new Date().toLocaleString("vi-VN")
-        );
-        await fetchScheduleData();
-        await fetchExamData();
-        await fetchUserInfo();
-        await fetchTimeUpdate();
+        await fetchData();
         await fetchNotes();
-        setNotification(true);
       } else {
         Alert.alert("Lỗi", "Không có kết nối mạng, không thể cập nhật!");
         return;
@@ -1126,14 +1120,70 @@ export default function ThoiKhoaBieuScreen() {
                 </View>
               }
             />
-            <TouchableOpacity
-              onPress={handleAddNote}
-              className={`absolute bottom-4 right-4 p-4 rounded-full ${
-                isDarkMode ? "bg-blue-500" : "bg-blue-600"
-              }`}
-            >
-              <Ionicons name="add" size={24} color="white" />
-            </TouchableOpacity>
+            <View className="absolute bottom-4 right-4">
+              <TouchableOpacity
+                onPress={toggleDropdown}
+                className={`p-4 rounded-full ${
+                  isDarkMode ? "bg-blue-500" : "bg-blue-600"
+                }`}
+              >
+                <Ionicons
+                  name={isOpen ? "close" : "document-text-outline"}
+                  size={24}
+                  color="white"
+                />
+              </TouchableOpacity>
+
+              {isOpen && (
+                <View
+                  className={`absolute bottom-16 right-0 rounded-lg shadow-lg ${
+                    isDarkMode ? "bg-gray-800" : "bg-white"
+                  }`}
+                  style={{
+                    width: isSmallScreen ? 160 : 200,
+                  }}
+                >
+                  <TouchableOpacity
+                    onPress={() => handleOptionSelect("note")}
+                    className={`flex-row items-center px-4 py-3 ${
+                      isDarkMode
+                        ? "border-b border-gray-700"
+                        : "border-b border-gray-200"
+                    }`}
+                  >
+                    <Ionicons
+                      name="document-text-outline"
+                      size={isSmallScreen ? 20 : 24}
+                      color={isDarkMode ? "white" : "black"}
+                    />
+                    <Text
+                      className={`ml-3 ${
+                        isDarkMode ? "text-white" : "text-black"
+                      } ${isSmallScreen ? "text-sm" : "text-base"}`}
+                    >
+                      Thêm ghi chú
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleOptionSelect("other")}
+                    className="flex-row items-center px-4 py-3"
+                  >
+                    <Ionicons
+                      name="reload"
+                      size={isSmallScreen ? 20 : 24}
+                      color={isDarkMode ? "white" : "black"}
+                    />
+                    <Text
+                      className={`ml-3 ${
+                        isDarkMode ? "text-white" : "text-black"
+                      } ${isSmallScreen ? "text-sm" : "text-base"}`}
+                    >
+                      Tải lại dữ liệu ghi chú
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
         </PanGestureHandler>
         <Modal
