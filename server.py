@@ -25,13 +25,23 @@ def get_tkb_and_exam_schedule(username, password):
             
             element = page.query_selector('#PageHeader1_lblUserFullName')
             if element and element.text_content().strip() != "Khách":
+                result = {
+                    'df_exam_schedule': None,
+                    'df_mark': None,
+                    'df_mark_detail': None
+                }
+                
                 # Download TKB
                 page.click('a[href="/kcntt/Home.aspx"]')
                 page.wait_for_load_state('networkidle')
                 page.click('a[href="/kcntt/Reports/Form/StudentTimeTable.aspx"]')
                 page.wait_for_load_state('networkidle')
-                
-                page.select_option('select[name="drpTerm"]', '1')
+                # đếm số option trong select[name="drpTerm"]
+                options = page.query_selector_all('select[name="drpTerm"] option')
+                if options:
+                    num_options = len(options)
+                    if num_options > 1:
+                        page.select_option('select[name="drpTerm"]', '1')
                 page.wait_for_load_state('networkidle')
     
                 with page.expect_download() as download_info:
@@ -43,23 +53,17 @@ def get_tkb_and_exam_schedule(username, password):
                 else:
                     print("Failed to download TKB")
 
-                result = {}
-
                 # Get exam schedule
                 try:
                     page.click('a[href="/kcntt/StudentViewExamList.aspx"]')
                     page.wait_for_load_state('networkidle')
                     
                     find_tblCourseList = page.query_selector('#tblCourseList')
-                    if not find_tblCourseList:
-                        print("No exam schedule found.")
-                    else:
+                    if find_tblCourseList:
                         rows = page.query_selector_all('#tblCourseList tr')
                         first_row = rows[1]
                         first_td = first_row.query_selector('td[colspan="10"][height="1"][bgcolor="#003399"]')
-                        if first_td:
-                            print("Found the specific <td> in the first row. No exam schedule data.")
-                        else:
+                        if not first_td:
                             data = []
                             for row in rows[1:-1]:
                                 cols = row.query_selector_all('td')
@@ -69,9 +73,9 @@ def get_tkb_and_exam_schedule(username, password):
                             columns = ['STT', 'ma_hoc_phan', 'ten_hoc_phan', 'so_tc', 'ngay_thi', 'ca_thi', 'hinh_thuc_thi', 'so_bao_danh', 'phong_thi', 'ghi_chu']
                             df_exam_schedule = pd.DataFrame(data, columns=columns)
                             result['df_exam_schedule'] = df_exam_schedule.to_dict(orient='records')
-                    
                 except Exception as e:
-                    print(f"Error occurred while getting exam schedule: {e}")
+                    print(f"Error in exam schedule: {e}")
+                    # Keep df_exam_schedule as None in result
 
                 # Get mark summary
                 try:
@@ -80,9 +84,7 @@ def get_tkb_and_exam_schedule(username, password):
                     page.click('a[href="/kcntt/StudentMark.aspx"]')
                     page.wait_for_load_state('networkidle')
                     find_grdResult = page.query_selector('#grdResult')
-                    if not find_grdResult:
-                        print("No Mark summary found.")
-                    else:
+                    if find_grdResult:
                         rows = page.query_selector_all('#grdResult tr')
                         data_mark = []
                         for row in rows[1:]:
@@ -93,14 +95,13 @@ def get_tkb_and_exam_schedule(username, password):
                         df_mark = pd.DataFrame(data_mark, columns=columns_mark)
                         result['df_mark'] = df_mark.to_dict(orient='records')
                 except Exception as e:
-                    print(f"Error occurred while getting mark summary: {e}")
+                    print(f"Error in mark summary: {e}")
+                    # Keep df_mark as None in result
                 
                 # Get mark details
                 try:
                     find_tblStudentMark = page.query_selector('#tblStudentMark')
-                    if not find_tblStudentMark:
-                        print("No Mark details found.")
-                    else:
+                    if find_tblStudentMark:
                         rows = page.query_selector_all('#tblStudentMark tr')
                         data_mark_detail = []
                         for row in rows[1:-1]:
@@ -111,12 +112,10 @@ def get_tkb_and_exam_schedule(username, password):
                         df_mark_detail = pd.DataFrame(data_mark_detail, columns=columns_mark_detail)
                         result['df_mark_detail'] = df_mark_detail.to_dict(orient='records')
                 except Exception as e:
-                    print(f"Error occurred while getting mark details: {e}")
+                    print(f"Error in mark details: {e}")
+                    # Keep df_mark_detail as None in result
                 
-                # Convert result to JSON
-                json_result = json.dumps(result, ensure_ascii=False)
-                
-                return json_result
+                return json.dumps(result, ensure_ascii=False)
             else:
                 print("Login failed or user is not authenticated.")
                 return None
@@ -137,25 +136,37 @@ def extract_week_info(week_str):
     return None, None, None
 
 def excel_to_structured_json(excel_file, data_extended = None):
-    if not os.path.exists(excel_file) or os.path.getsize(excel_file) == 0:
+    if not os.path.exists(excel_file):
         return None
-
+        
     try:
         df = pd.read_excel(excel_file, engine='xlrd', header=None)
-        columns = ['STT', 'lop_hoc_phan', 'giang_vien', 'thu', 'tiet_hoc', 'dia_diem', 'tuan_hoc']
-        result = {"user_info": {}, "thoikhoabieu": [], "lichthi": [], "diem": [], "diem_detail": []}
+        if df.empty:
+            if os.path.exists(excel_file):
+                os.remove(excel_file)
+            return None
+            
+        result = {
+            "user_info": {},
+            "thoikhoabieu": [],
+            "lichthi": None,
+            "diem": None,
+            "diem_detail": None
+        }
+        
         if data_extended is not None:
             json_data = json.loads(data_extended)
-            result["lichthi"] = json_data['df_exam_schedule']
-            result["diem"] = json_data['df_mark']
-            result["diem_detail"] = json_data['df_mark_detail']
+            result["lichthi"] = json_data.get('df_exam_schedule')
+            result["diem"] = json_data.get('df_mark')
+            result["diem_detail"] = json_data.get('df_mark_detail')
+            
+        columns = ['STT', 'lop_hoc_phan', 'giang_vien', 'thu', 'tiet_hoc', 'dia_diem', 'tuan_hoc']
         current_week = None
 
         for index, row in df.iterrows():
             if index == 0:
-                continue  # Skip the header row
+                continue
 
-            # Detect week information
             if pd.notna(row[1]) and isinstance(row[1], str) and 'Tuần' in row[1]:
                 week_number, start_date, end_date = extract_week_info(row[1].strip())
                 current_week = {
@@ -167,7 +178,6 @@ def excel_to_structured_json(excel_file, data_extended = None):
                 result["thoikhoabieu"].append(current_week)
                 continue
 
-            # Detect student information
             if pd.notna(row[1]) and isinstance(row[1], str) and 'Sinh viên :' in row[1]:
                 result["user_info"]["name"] = row[2].split(' - ')[1]
                 result["user_info"]["masinhvien"] = row[2].split(' - ')[0]
@@ -181,7 +191,6 @@ def excel_to_structured_json(excel_file, data_extended = None):
                 result["user_info"]["khoa"] = row[2]
                 continue
 
-            # Process class data
             if pd.notna(row[0]) and pd.notna(row[1]) and current_week is not None:
                 class_data = {
                     columns[0]: row[0],
@@ -193,12 +202,14 @@ def excel_to_structured_json(excel_file, data_extended = None):
                     columns[6]: current_week["week_number"]
                 }
                 current_week["data"].append(class_data)
+                
         os.remove(excel_file)
         return result
 
     except Exception as e:
-        return {"details": str(e), "error": "An unexpected error occurred"}
-    
+        if os.path.exists(excel_file):
+            os.remove(excel_file)
+        return None
 @app.route('/get_tkb', methods=['POST'])
 def get_tkb_api():
     try:
@@ -214,12 +225,6 @@ def get_tkb_api():
         if exam_schedule is not None:
             excel_file = "TKB_exported.xls"
             result = excel_to_structured_json(excel_file, exam_schedule)
-            if result is None:
-                return jsonify({"error": "Failed to process timetable data"}), 500
-            return jsonify(result)
-        elif exam_schedule == True:
-            excel_file = "TKB_exported.xls"
-            result = excel_to_structured_json(excel_file)
             if result is None:
                 return jsonify({"error": "Failed to process timetable data"}), 500
             return jsonify(result)

@@ -462,7 +462,7 @@ const MenuScreen = () => {
                       isDarkMode ? "text-gray-300" : "text-gray-600"
                     } text-sm ml-2`}
                   >
-                    Build ID: <Text className="font-semibold">2024.10.12</Text>
+                    Build ID: <Text className="font-semibold">2024.12.30</Text>
                   </Text>
                   <Text
                     className={`${
@@ -576,7 +576,7 @@ const MenuScreen = () => {
               visible={isChangelogModalVisible}
               onClose={() => setChangelogModalVisible(false)}
               title="Nhật ký thay đổi"
-              content={`** PHIÊN BẢN 2.6.STABLE **\n\n- Sửa Lỗi: Hệ thống lưu trữ FireStorage không hoạt động.\n- Sửa lỗi: Tác vụ chạy nền không hoạt động đúng cách trong 1 số trường hợp.\n- Sửa lỗi: Dữ liệu không tự cập nhật lại khi có thay đổi.\n- Sửa lỗi: Một số lỗi khác đã biết trước đó.\n\n** PHIÊN BẢN 2.5.STABLE **\n\n- Thêm: Giao diện AddNoteScreen.\n- Thêm: Hỗ trợ lưu trữ ghi chú mã hoá P2P.\n- Thêm: Giao diện IntroScreen\n- Thêm: Giao diện LoadingSpinner\n- Cập Nhật: Thêm các mục cài đặt mới, và sửa lại văn bản một số mục cài đặt\n- Cập Nhật: Nút sao chép trong một số mục trong Cài đặt\n- Tối Ưu: Hệ thống lưu trữ nhật ký Console Log\n- Sửa Lỗi: Giao diện người dùng, và một số lỗi đã biết\n\n© ${new Date().getFullYear()} Made with ❤️ by Hứa Đức Quân`}
+              content={`** PHIÊN BẢN 2.7.STABLE **\n\n- Cập Nhật: URL Api ứng dụng\n\n** PHIÊN BẢN 2.6.STABLE **\n\n- Sửa Lỗi: Hệ thống lưu trữ FireStorage không hoạt động.\n- Sửa lỗi: Tác vụ chạy nền không hoạt động đúng cách trong 1 số trường hợp.\n- Sửa lỗi: Dữ liệu không tự cập nhật lại khi có thay đổi.\n- Sửa lỗi: Một số lỗi khác đã biết trước đó.\n\n** PHIÊN BẢN 2.5.STABLE **\n\n- Thêm: Giao diện AddNoteScreen.\n- Thêm: Hỗ trợ lưu trữ ghi chú mã hoá P2P.\n- Thêm: Giao diện IntroScreen\n- Thêm: Giao diện LoadingSpinner\n- Cập Nhật: Thêm các mục cài đặt mới, và sửa lại văn bản một số mục cài đặt\n- Cập Nhật: Nút sao chép trong một số mục trong Cài đặt\n- Tối Ưu: Hệ thống lưu trữ nhật ký Console Log\n- Sửa Lỗi: Giao diện người dùng, và một số lỗi đã biết\n\n© ${new Date().getFullYear()} Made with ❤️ by Hứa Đức Quân`}
               closeText={"Đóng"}
               closeColor={"bg-teal-700"}
             />

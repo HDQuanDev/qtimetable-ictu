@@ -215,17 +215,17 @@ function AppContent() {
   useEffect(() => {
     const checkFirstTime = async () => {
       if (!isLoggedIn) return;
-      const firstTime = await AsyncStorage.getItem("firstTime_v2.5.stable");
+      const firstTime = await AsyncStorage.getItem("firstTime_v2.7.stable");
       if (!firstTime) {
         setShowFirstTime({
           showModal: true,
           title: "Ứng dụng đã được cập nhật",
           content:
-            "Chào mừng bạn đến với phiên bản V2.5 của ứng dụng, ở phiên bản này, chúng tôi đã cải thiện giao diện và tối ưu hóa hiệu suất ứng dụng và thêm 1 số tính năng mới. Để ứng dụng hoạt động tốt nhất, vui lòng cập nhật dữ liệu mới nhất bằng cách sử dụng nút reset ở trên góc!",
+            "Chào mừng bạn đến với phiên bản V2.7 của ứng dụng, ở phiên bản này, chúng tôi đã cải thiện giao diện và tối ưu hóa hiệu suất ứng dụng và thêm 1 số tính năng mới. Để ứng dụng hoạt động tốt nhất, vui lòng cập nhật dữ liệu mới nhất bằng cách sử dụng nút reset ở trên góc!",
           actionText: "Đã hiểu",
           actionColor: "bg-blue-600",
           onActionPress: async () => {
-            await AsyncStorage.setItem("firstTime_v2.5.stable", "false");
+            await AsyncStorage.setItem("firstTime_v2.7.stable", "false");
             setShowFirstTime(null);
           },
           closeText: "Hủy",

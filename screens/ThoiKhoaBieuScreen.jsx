@@ -224,7 +224,7 @@ export default function ThoiKhoaBieuScreen() {
   const fetchExamData = async () => {
     try {
       const data = await AsyncStorage.getItem("userData_LichThi");
-      if (data) {
+      if (data && data !== "null") {
         setExamData(JSON.parse(data));
       }
     } catch (error) {
