@@ -11,7 +11,7 @@ app = Flask(__name__)
 def get_tkb_and_exam_schedule(username, password):
     url = "http://dangkytinchi.ictu.edu.vn/"
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         try:
             page.goto(url, timeout=30000)
@@ -36,7 +36,7 @@ def get_tkb_and_exam_schedule(username, password):
                 page.wait_for_load_state('networkidle')
                 page.click('a[href="/kcntt/Reports/Form/StudentTimeTable.aspx"]')
                 page.wait_for_load_state('networkidle')
-                # đếm số option trong select[name="drpTerm"]
+                
                 options = page.query_selector_all('select[name="drpTerm"] option')
                 if options:
                     num_options = len(options)
@@ -75,7 +75,6 @@ def get_tkb_and_exam_schedule(username, password):
                             result['df_exam_schedule'] = df_exam_schedule.to_dict(orient='records')
                 except Exception as e:
                     print(f"Error in exam schedule: {e}")
-                    # Keep df_exam_schedule as None in result
 
                 # Get mark summary
                 try:
@@ -96,7 +95,6 @@ def get_tkb_and_exam_schedule(username, password):
                         result['df_mark'] = df_mark.to_dict(orient='records')
                 except Exception as e:
                     print(f"Error in mark summary: {e}")
-                    # Keep df_mark as None in result
                 
                 # Get mark details
                 try:
@@ -113,7 +111,6 @@ def get_tkb_and_exam_schedule(username, password):
                         result['df_mark_detail'] = df_mark_detail.to_dict(orient='records')
                 except Exception as e:
                     print(f"Error in mark details: {e}")
-                    # Keep df_mark_detail as None in result
                 
                 return json.dumps(result, ensure_ascii=False)
             else:
@@ -136,14 +133,40 @@ def extract_week_info(week_str):
     return None, None, None
 
 def excel_to_structured_json(excel_file, data_extended = None):
+    # Check if Excel file exists
     if not os.path.exists(excel_file):
+        if data_extended is not None:
+            try:
+                json_data = json.loads(data_extended)
+                return {
+                    "user_info": {},
+                    "thoikhoabieu": [],
+                    "lichthi": json_data.get('df_exam_schedule', None),
+                    "diem": json_data.get('df_mark', None),
+                    "diem_detail": json_data.get('df_mark_detail', None)
+                }
+            except (json.JSONDecodeError, AttributeError) as e:
+                print(f"Error parsing extended data when Excel file missing: {e}")
         return None
         
     try:
         df = pd.read_excel(excel_file, engine='xlrd', header=None)
         if df.empty:
+            print("Excel file is empty")
             if os.path.exists(excel_file):
                 os.remove(excel_file)
+            if data_extended is not None:
+                try:
+                    json_data = json.loads(data_extended)
+                    return {
+                        "user_info": {},
+                        "thoikhoabieu": [],
+                        "lichthi": json_data.get('df_exam_schedule', None),
+                        "diem": json_data.get('df_mark', None),
+                        "diem_detail": json_data.get('df_mark_detail', None)
+                    }
+                except (json.JSONDecodeError, AttributeError) as e:
+                    print(f"Error parsing extended data when Excel is empty: {e}")
             return None
             
         result = {
@@ -154,11 +177,15 @@ def excel_to_structured_json(excel_file, data_extended = None):
             "diem_detail": None
         }
         
+        # Handle extended data
         if data_extended is not None:
-            json_data = json.loads(data_extended)
-            result["lichthi"] = json_data.get('df_exam_schedule')
-            result["diem"] = json_data.get('df_mark')
-            result["diem_detail"] = json_data.get('df_mark_detail')
+            try:
+                json_data = json.loads(data_extended)
+                result["lichthi"] = json_data.get('df_exam_schedule', None)
+                result["diem"] = json_data.get('df_mark', None)
+                result["diem_detail"] = json_data.get('df_mark_detail', None)
+            except (json.JSONDecodeError, AttributeError) as e:
+                print(f"Error parsing extended data: {e}")
             
         columns = ['STT', 'lop_hoc_phan', 'giang_vien', 'thu', 'tiet_hoc', 'dia_diem', 'tuan_hoc']
         current_week = None
@@ -203,13 +230,30 @@ def excel_to_structured_json(excel_file, data_extended = None):
                 }
                 current_week["data"].append(class_data)
                 
-        os.remove(excel_file)
+        if os.path.exists(excel_file):
+            os.remove(excel_file)
         return result
 
     except Exception as e:
+        print(f"Error processing Excel file: {e}")
         if os.path.exists(excel_file):
             os.remove(excel_file)
+            
+        if data_extended is not None:
+            try:
+                json_data = json.loads(data_extended)
+                return {
+                    "user_info": {},
+                    "thoikhoabieu": [],
+                    "lichthi": json_data.get('df_exam_schedule', None),
+                    "diem": json_data.get('df_mark', None),
+                    "diem_detail": json_data.get('df_mark_detail', None)
+                }
+            except (json.JSONDecodeError, AttributeError) as parse_error:
+                print(f"Error parsing extended data in exception handler: {parse_error}")
+        
         return None
+  
 @app.route('/get_tkb', methods=['POST'])
 def get_tkb_api():
     try:
@@ -226,7 +270,10 @@ def get_tkb_api():
             excel_file = "TKB_exported.xls"
             result = excel_to_structured_json(excel_file, exam_schedule)
             if result is None:
-                return jsonify({"error": "Failed to process timetable data"}), 500
+                return jsonify({
+                    "error": "Failed to process timetable data",
+                    "data": exam_schedule
+                }), 500
             return jsonify(result)
         else:
             return jsonify({"error": "Failed to get timetable"}), 500
@@ -234,6 +281,6 @@ def get_tkb_api():
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
-
+    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
