@@ -5,6 +5,8 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Modal,
+  Pressable,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,37 +17,111 @@ import { useTheme } from "../components/ThemeProvider";
 import { useFocusEffect } from "@react-navigation/native";
 
 // Hàm hiển thị nút chức năng
-const DataList = ({ title, icon, color, data, isDarkMode }) => (
-  <TouchableOpacity
-    className={`flex-row justify-between items-center px-4 py-3 rounded-xl mt-5 ${
-      isDarkMode ? "bg-gray-500" : "bg-gray-300"
-    } border-2 {isDarkMode ? 'border-gray-900' : 'border-gray-700'}`}
-  >
-    <View
-      className={`w-8 h-8 rounded-full items-center justify-center mr-4 ${color}`}
-    >
-      <Ionicons name={icon} size={24} color="white" />
-    </View>
-    <Text
-      className={`${
-        isDarkMode ? "text-white" : "text-gray-800"
-      } font-medium text-base flex-1`}
-    >
-      {title}
-    </Text>
-    <Text
-      className={`${
-        isDarkMode ? "text-white" : "text-gray-800"
-      } font-medium text-base`}
-    >
-      {data}
-    </Text>
-  </TouchableOpacity>
-);
+const DataList = ({ title, icon, color, data, isDarkMode }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => setModalVisible(true)}
+        className={`flex-row justify-between items-center px-4 py-3 rounded-xl mt-5 ${
+          isDarkMode ? "bg-gray-500" : "bg-gray-300"
+        } border-2 ${isDarkMode ? 'border-gray-900' : 'border-gray-700'}`}
+      >
+        <View
+          className={`w-8 h-8 rounded-full items-center justify-center mr-4 ${color}`}
+        >
+          <Ionicons name={icon} size={24} color="white" />
+        </View>
+        <Text
+          className={`${
+            isDarkMode ? "text-white" : "text-gray-800"
+          } font-medium text-base flex-1`}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {title}
+        </Text>
+        <Text
+          className={`${
+            isDarkMode ? "text-white" : "text-gray-800"
+          } font-medium text-base ml-2`}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          style={{ maxWidth: 120 }}
+        >
+          {data}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Modal hiển thị chi tiết */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <Pressable
+          className="flex-1 justify-center items-center bg-black/50"
+          onPress={() => setModalVisible(false)}
+        >
+          <Pressable
+            className={`m-5 rounded-2xl p-6 shadow-lg ${
+              isDarkMode ? "bg-gray-800" : "bg-white"
+            }`}
+            style={{ maxWidth: "90%", minWidth: 300 }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View className="flex-row items-center mb-4">
+              <View
+                className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${color}`}
+              >
+                <Ionicons name={icon} size={28} color="white" />
+              </View>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-gray-800"
+                } font-bold text-xl flex-1`}
+              >
+                {title}
+              </Text>
+            </View>
+
+            <View
+              className={`p-4 rounded-xl ${
+                isDarkMode ? "bg-gray-700" : "bg-gray-100"
+              }`}
+            >
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-gray-800"
+                } text-base leading-6`}
+              >
+                {data}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              className={`mt-5 py-3 rounded-xl ${
+                isDarkMode ? "bg-blue-600" : "bg-blue-500"
+              }`}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text className="text-white text-center font-semibold text-base">
+                Đóng
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+};
 
 const ProfileScreen = () => {
   const { isDarkMode } = useTheme();
   const [user, setUser] = useState(null);
+  const [qrModalVisible, setQrModalVisible] = useState(false);
 
   // Hàm lấy thông tin người dùng từ bộ nhớ cục bộ
   const fetchUserInfo = async () => {
@@ -123,21 +199,26 @@ const ProfileScreen = () => {
               <ScrollView className="flex-grow">
                 <View className="items-center p-4">
                   {/* Replace with your actual user profile image */}
-                  <View
-                    className={`${
-                      isDarkMode
-                        ? "border-2 border-sky-500"
-                        : "border-2 border-sky-300"
-                    }`}
+                  <TouchableOpacity
+                    onPress={() => setQrModalVisible(true)}
+                    activeOpacity={0.8}
                   >
-                    <QRCode
-                      value={user?.masinhvien || "Không xác định"}
-                      size={250}
-                      color={isDarkMode ? "white" : "black"}
-                      backgroundColor={isDarkMode ? "black" : "white"}
-                      enableLinearGradient={true}
-                    />
-                  </View>
+                    <View
+                      className={`${
+                        isDarkMode
+                          ? "border-2 border-sky-500"
+                          : "border-2 border-sky-300"
+                      }`}
+                    >
+                      <QRCode
+                        value={user?.masinhvien || "Không xác định"}
+                        size={250}
+                        color={isDarkMode ? "white" : "black"}
+                        backgroundColor={isDarkMode ? "black" : "white"}
+                        enableLinearGradient={true}
+                      />
+                    </View>
+                  </TouchableOpacity>
                   <View>
                     <Text
                       className={`${
@@ -192,6 +273,67 @@ const ProfileScreen = () => {
             </View>
           </View>
         </LinearGradient>
+
+        {/* Modal hiển thị QR Code phóng to */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={qrModalVisible}
+          onRequestClose={() => setQrModalVisible(false)}
+        >
+          <Pressable
+            className="flex-1 justify-center items-center bg-black/80"
+            onPress={() => setQrModalVisible(false)}
+          >
+            <Pressable
+              className={`m-5 rounded-2xl p-6 shadow-lg ${
+                isDarkMode ? "bg-gray-800" : "bg-white"
+              }`}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View className="items-center">
+                <Text
+                  className={`${
+                    isDarkMode ? "text-white" : "text-gray-800"
+                  } font-bold text-xl mb-4`}
+                >
+                  Mã QR Code
+                </Text>
+                <View
+                  className={`p-4 rounded-xl ${
+                    isDarkMode ? "border-2 border-sky-500" : "border-2 border-sky-300"
+                  }`}
+                >
+                  <QRCode
+                    value={user?.masinhvien || "Không xác định"}
+                    size={300}
+                    color={isDarkMode ? "white" : "black"}
+                    backgroundColor={isDarkMode ? "black" : "white"}
+                    enableLinearGradient={true}
+                  />
+                </View>
+                <Text
+                  className={`${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  } mt-4 text-base`}
+                >
+                  {user?.masinhvien || "Không xác định"}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                className={`mt-5 py-3 rounded-xl ${
+                  isDarkMode ? "bg-blue-600" : "bg-blue-500"
+                }`}
+                onPress={() => setQrModalVisible(false)}
+              >
+                <Text className="text-white text-center font-semibold text-base">
+                  Đóng
+                </Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </GestureHandlerRootView>
     </>
   );

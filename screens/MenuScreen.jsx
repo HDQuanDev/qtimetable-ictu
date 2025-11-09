@@ -102,8 +102,8 @@ const MenuScreen = () => {
       case "contact":
         Linking.openURL("https://facebook.com/quancp72h");
         break;
-      case "aichat":
-        Linking.openURL("https://ai.quanhd.net/");
+      case "web":
+        Linking.openURL("https://ictu.quanhd.net/");
         break;
       case "update":
         const state = await NetInfo.fetch();
@@ -211,7 +211,7 @@ const MenuScreen = () => {
               />
             </TouchableOpacity>
           </LinearGradient>
-          <View className="flex-1 px-4 pb-2">
+          <View className="flex-1 pb-2">
             {/* Scrollable Content */}
 
             {/* User Profile */}
@@ -351,7 +351,7 @@ const MenuScreen = () => {
                       className="w-full flex-row items-center p-4 rounded-xl"
                     />
                     <MenuButton
-                      title="Nhật ký Console Log"
+                      title="Nhật ký Debug Log"
                       icon="bug-outline"
                       color="bg-red-700"
                       isDarkMode={isDarkMode}
@@ -363,7 +363,7 @@ const MenuScreen = () => {
                       className="w-full flex-row items-center p-4 rounded-xl"
                     />
                     <MenuButton
-                      title="Xóa Nhật Ký Console Log"
+                      title="Xóa Nhật Ký Debug Log"
                       icon="trash-outline"
                       color="bg-red-700"
                       isDarkMode={isDarkMode}
@@ -414,11 +414,11 @@ const MenuScreen = () => {
                       className="w-full flex-row items-center p-4 rounded-xl"
                     />
                     <MenuButton
-                      title="Trò Chuyện Với QAI"
+                      title="Sử dụng phiên bản Web"
                       icon="chatbubble-ellipses-outline"
                       color="bg-cyan-700"
                       isDarkMode={isDarkMode}
-                      onPress={() => handleMenuOption("aichat")}
+                      onPress={() => handleMenuOption("web")}
                       className="w-full flex-row items-center p-4 rounded-xl"
                     />
                   </SettingsCard>
@@ -462,7 +462,7 @@ const MenuScreen = () => {
                       isDarkMode ? "text-gray-300" : "text-gray-600"
                     } text-sm ml-2`}
                   >
-                    Build ID: <Text className="font-semibold">2024.12.30</Text>
+                    Build ID: <Text className="font-semibold">2025.09.11</Text>
                   </Text>
                   <Text
                     className={`${
@@ -567,7 +567,7 @@ const MenuScreen = () => {
               visible={isAboutModalVisible}
               onClose={() => setAboutModalVisible(false)}
               title="Thông tin ứng dụng"
-              content={`Đây là ứng dụng dành cho Sinh viên trường Đại học Công Nghệ Thông Tin & Truyền Thông Thái Nguyên. Ứng dụng giúp bạn xem thời khóa biểu, lịch thi, tra cứu điểm, và nhiều tính năng khác...\n\nỨng dụng được phát triển bởi Hứa Đức Quân, sinh viên năm cuối ngành Công nghệ thông tin, trường Đại học Công Nghệ Thông Tin & Truyền Thông Thái Nguyên.\n\n© 2024 Made with ❤️ by Hứa Đức Quân`}
+              content={`Đây là ứng dụng dành cho Sinh viên trường Đại học Công Nghệ Thông Tin & Truyền Thông Thái Nguyên. Ứng dụng giúp bạn xem thời khóa biểu, lịch thi, tra cứu điểm, và nhiều tính năng khác...\n\nỨng dụng được phát triển bởi Hứa Đức Quân, sinh viên năm cuối ngành Công nghệ thông tin, trường Đại học Công Nghệ Thông Tin & Truyền Thông Thái Nguyên.\n\n© ${new Date().getFullYear()} Made with ❤️ by Hứa Đức Quân`}
               closeText={"Đóng"}
               closeColor={"bg-purple-800"}
             />
@@ -576,7 +576,7 @@ const MenuScreen = () => {
               visible={isChangelogModalVisible}
               onClose={() => setChangelogModalVisible(false)}
               title="Nhật ký thay đổi"
-              content={`** PHIÊN BẢN 2.7.STABLE **\n\n- Cập Nhật: URL Api ứng dụng\n\n** PHIÊN BẢN 2.6.STABLE **\n\n- Sửa Lỗi: Hệ thống lưu trữ FireStorage không hoạt động.\n- Sửa lỗi: Tác vụ chạy nền không hoạt động đúng cách trong 1 số trường hợp.\n- Sửa lỗi: Dữ liệu không tự cập nhật lại khi có thay đổi.\n- Sửa lỗi: Một số lỗi khác đã biết trước đó.\n\n** PHIÊN BẢN 2.5.STABLE **\n\n- Thêm: Giao diện AddNoteScreen.\n- Thêm: Hỗ trợ lưu trữ ghi chú mã hoá P2P.\n- Thêm: Giao diện IntroScreen\n- Thêm: Giao diện LoadingSpinner\n- Cập Nhật: Thêm các mục cài đặt mới, và sửa lại văn bản một số mục cài đặt\n- Cập Nhật: Nút sao chép trong một số mục trong Cài đặt\n- Tối Ưu: Hệ thống lưu trữ nhật ký Console Log\n- Sửa Lỗi: Giao diện người dùng, và một số lỗi đã biết\n\n© ${new Date().getFullYear()} Made with ❤️ by Hứa Đức Quân`}
+              content={`** PHIÊN BẢN 2.8 **\n\nKHỞI ĐỘNG LẠI ỨNG DỤNG\n- Cập Nhật: URL Api ứng dụng\n\n** PHIÊN BẢN 2.7.STABLE **\n\n- Cập Nhật: URL Api ứng dụng\n\n** PHIÊN BẢN 2.6.STABLE **\n\n- Sửa Lỗi: Hệ thống lưu trữ FireStorage không hoạt động.\n- Sửa lỗi: Tác vụ chạy nền không hoạt động đúng cách trong 1 số trường hợp.\n- Sửa lỗi: Dữ liệu không tự cập nhật lại khi có thay đổi.\n- Sửa lỗi: Một số lỗi khác đã biết trước đó.\n\n** PHIÊN BẢN 2.5.STABLE **\n\n- Thêm: Giao diện AddNoteScreen.\n- Thêm: Hỗ trợ lưu trữ ghi chú mã hoá P2P.\n- Thêm: Giao diện IntroScreen\n- Thêm: Giao diện LoadingSpinner\n- Cập Nhật: Thêm các mục cài đặt mới, và sửa lại văn bản một số mục cài đặt\n- Cập Nhật: Nút sao chép trong một số mục trong Cài đặt\n- Tối Ưu: Hệ thống lưu trữ nhật ký Console Log\n- Sửa Lỗi: Giao diện người dùng, và một số lỗi đã biết\n\n© ${new Date().getFullYear()} Made with ❤️ by Hứa Đức Quân`}
               closeText={"Đóng"}
               closeColor={"bg-teal-700"}
             />
@@ -612,8 +612,8 @@ const MenuScreen = () => {
               <ModalComponent
                 visible={true}
                 onClose={() => setShowModalClearLogs(false)}
-                title="Xóa Nhật Ký Console Log"
-                content="Bạn có chắc chắn muốn xóa toàn bộ nhật ký Console Log không? Hành động này không thể hoàn tác!"
+                title="Xóa Nhật Ký Debug Log"
+                content="Bạn có chắc chắn muốn xóa toàn bộ nhật ký Debug Log không? Hành động này không thể hoàn tác!"
                 closeText="Hủy"
                 closeColor="bg-gray-700"
                 actionText="Xóa"
@@ -645,7 +645,7 @@ const MenuScreen = () => {
                     setLogs([]);
                     setShowModalLogs(false);
                   }}
-                  title="Nhật ký Console Log"
+                  title="Nhật ký Debug Log"
                   content={`${JSON.stringify(logs, null, 2)}`}
                   closeText="Đóng"
                   closeColor="bg-red-700"

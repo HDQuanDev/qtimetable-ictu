@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
   Dimensions,
+  Linking,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Calendar, LocaleConfig } from "react-native-calendars";
@@ -120,9 +121,9 @@ export default function ThoiKhoaBieuScreen() {
       setScreenWidth(Dimensions.get("window").width);
     };
 
-    Dimensions.addEventListener("change", updateLayout);
+    const subscription = Dimensions.addEventListener("change", updateLayout);
     return () => {
-      Dimensions.removeEventListener("change", updateLayout);
+      subscription?.remove();
     };
   }, []);
 
@@ -138,6 +139,42 @@ export default function ThoiKhoaBieuScreen() {
   };
 
   const isSmallScreen = screenWidth < 360;
+
+  // Hàm tách link Google Meet khỏi tên giảng viên
+  const extractMeetLink = (teacherName) => {
+    if (!teacherName) return { name: "", meetLink: null };
+    
+    // Regex để tìm link Google Meet
+    const meetRegex = /(https?:\/\/)?meet\.google\.com\/[^\s]+/gi;
+    const matches = teacherName.match(meetRegex);
+    
+    if (matches && matches.length > 0) {
+      let meetLink = matches[0];
+      // Thêm https:// nếu chưa có
+      if (!meetLink.startsWith('http')) {
+        meetLink = 'https://' + meetLink;
+      }
+      // Xóa link khỏi tên giảng viên
+      const cleanName = teacherName.replace(meetRegex, '').trim();
+      return { name: cleanName, meetLink };
+    }
+    
+    return { name: teacherName, meetLink: null };
+  };
+
+  // Hàm mở link Google Meet
+  const openMeetLink = async (url) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Lỗi", "Không thể mở link Google Meet");
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", "Có lỗi xảy ra khi mở link: " + error.message);
+    }
+  };
 
   //hàm xử lý thêm ghi chú
   const handleAddNote = () => {
@@ -913,7 +950,7 @@ export default function ThoiKhoaBieuScreen() {
         <TouchableOpacity
           onPress={() => handleDayPress(day)}
           style={{ width: buttonWidth }}
-          className={`p-2 rounded-2xl mr-1 ${
+          className={`p-[4px] rounded-2xl mr-1 ${
             selectedDate === day.dateString
               ? isDarkMode
                 ? "bg-blue-500"
@@ -1287,82 +1324,125 @@ export default function ThoiKhoaBieuScreen() {
             >
               <View className={`rounded-lg p-6 w-11/12 max-h-5/6`}>
                 <ScrollView>
-                  {selectedClass && (
-                    <>
-                      <Text
-                        className={`text-center text-2xl font-bold mb-4 ${
-                          isDarkMode ? "text-gray-300" : "text-gray-800"
-                        }`}
-                      >
-                        {selectedClass["lop_hoc_phan"]}
-                      </Text>
-                      <Text
-                        className={`text-lg mb-2 ${
-                          isDarkMode ? "text-gray-500" : "text-gray-700"
-                        }`}
-                      >
-                        <Text className="font-semibold">Môn học:</Text>{" "}
+                  {selectedClass && (() => {
+                    const { name: teacherName, meetLink } = extractMeetLink(selectedClass["giang_vien"]);
+                    return (
+                      <>
                         <Text
-                          className={`text-sky-500 ${
-                            isDarkMode ? "dark:text-sky-400" : ""
+                          className={`text-center text-2xl font-bold mb-2 ${
+                            isDarkMode ? "text-gray-300" : "text-gray-800"
                           }`}
                         >
-                          {selectedClass["lop_hoc_phan"]}
+                          Chi tiết lớp học
                         </Text>
-                      </Text>
-                      <Text
-                        className={`text-lg mb-2 ${
-                          isDarkMode ? "text-gray-500" : "text-gray-700"
-                        }`}
-                      >
-                        <Text className="font-semibold">Giảng viên:</Text>{" "}
-                        <Text className="text-sky-500">
-                          {selectedClass["giang_vien"]}
+                        <Text
+                          className={`text-lg mb-2 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-700"
+                          }`}
+                        >
+                          <Text className="font-semibold">Môn học:</Text>{" "}
+                          <Text
+                            className={`text-sky-500 ${
+                              isDarkMode ? "dark:text-sky-400" : ""
+                            }`}
+                          >
+                            {selectedClass["lop_hoc_phan"]}
+                          </Text>
                         </Text>
-                      </Text>
-                      <Text
-                        className={`text-lg mb-2 ${
-                          isDarkMode ? "text-gray-500" : "text-gray-700"
-                        }`}
-                      >
-                        <Text className="font-semibold">Địa điểm:</Text>{" "}
-                        <Text className="text-sky-500">
-                          {selectedClass["dia_diem"]}
+                        <Text
+                          className={`text-lg mb-2 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-700"
+                          }`}
+                        >
+                          <Text className="font-semibold">Giảng viên:</Text>{" "}
+                          <Text className="text-sky-500">
+                            {teacherName}
+                          </Text>
                         </Text>
-                      </Text>
-                      <Text
-                        className={`text-lg mb-2 ${
-                          isDarkMode ? "text-gray-500" : "text-gray-700"
-                        }`}
-                      >
-                        <Text className="font-semibold">Thời gian:</Text>{" "}
-                        <Text className="text-sky-500">
-                          {selectedClass["tiet_hoc"]} (
-                          {selectedClass["startTime"]} -{" "}
-                          {selectedClass["endTime"]})
+                        <Text
+                          className={`text-lg mb-2 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-700"
+                          }`}
+                        >
+                          <Text className="font-semibold">Địa điểm:</Text>{" "}
+                          <Text className="text-sky-500">
+                            {selectedClass["dia_diem"]}
+                          </Text>
                         </Text>
-                      </Text>
-                      <Text
-                        className={`text-lg mb-2 ${
-                          isDarkMode ? "text-gray-500" : "text-gray-700"
-                        }`}
-                      >
-                        <Text className="font-semibold">Tuần học:</Text>{" "}
-                        <Text className="text-sky-500">
-                          {selectedClass["tuan_hoc"]}
+                        <Text
+                          className={`text-lg mb-2 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-700"
+                          }`}
+                        >
+                          <Text className="font-semibold">Thời gian:</Text>{" "}
+                          <Text className="text-sky-500">
+                            {selectedClass["tiet_hoc"]} (
+                            {selectedClass["startTime"]} -{" "}
+                            {selectedClass["endTime"]})
+                          </Text>
                         </Text>
-                      </Text>
-                    </>
-                  )}
+                        <Text
+                          className={`text-lg mb-2 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-700"
+                          }`}
+                        >
+                          <Text className="font-semibold">Tuần học:</Text>{" "}
+                          <Text className="text-sky-500">
+                            {selectedClass["tuan_hoc"]}
+                          </Text>
+                        </Text>
+                      </>
+                    );
+                  })()}
                 </ScrollView>
-                <TouchableOpacity
-                  onPress={() => setModalVisible(false)}
-                  className={`py-2 px-4 rounded-full mt-4 ${
-                    isDarkMode ? "bg-blue-500" : "bg-blue-600"
-                  }`}
-                >
-                  <Text className="text-white text-center font-bold">Đóng</Text>
-                </TouchableOpacity>
+                <View className="flex-row gap-2 mt-4">
+                  {selectedClass && (() => {
+                    const { meetLink } = extractMeetLink(selectedClass["giang_vien"]);
+                    if (meetLink) {
+                      return (
+                        <>
+                          <TouchableOpacity
+                            onPress={() => openMeetLink(meetLink)}
+                            className={`flex-1 px-4 rounded-full py-4 ${
+                              isDarkMode ? "bg-green-600" : "bg-green-500"
+                            }`}
+                          >
+                            <View className="flex-row items-center justify-center">
+                              <Ionicons name="videocam" size={20} color="white" />
+                              <Text className="text-white text-center font-bold ml-2">
+                                Vào Meet
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => setModalVisible(false)}
+                            className={`flex-1 px-4 rounded-full py-4 ${
+                              isDarkMode ? "bg-blue-500" : "bg-blue-600"
+                            }`}
+                          >
+                            <View className="flex-row items-center justify-center">
+                              <Ionicons name="close" size={20} color="white" />
+                              <Text className="text-white text-center font-bold">Đóng</Text>
+                            </View>
+                          </TouchableOpacity>
+                        </>
+                      );
+                    }
+                    return (
+                      <TouchableOpacity
+                        onPress={() => setModalVisible(false)}
+                        className={`flex-1 px-4 rounded-full py-4 ${
+                          isDarkMode ? "bg-blue-500" : "bg-blue-600"
+                        }`}
+                      >
+                        <View className="flex-row items-center justify-center">
+                          <Ionicons name="close" size={20} color="white" />
+                          <Text className="text-white text-center font-bold">Đóng</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })()}
+                </View>
               </View>
             </LinearGradient>
           </View>

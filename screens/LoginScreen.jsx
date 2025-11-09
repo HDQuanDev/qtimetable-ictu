@@ -10,6 +10,8 @@ import {
   Platform,
   Animated,
   useColorScheme,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Toast from "react-native-toast-message";
@@ -63,6 +65,7 @@ export default function LoginScreen() {
 
   // Hàm xử lý đăng nhập
   const handleLogin = async () => {
+    Keyboard.dismiss(); // Đóng bàn phím khi đăng nhập
     if (email && password) {
       setIsSubmitting(true);
       try {
@@ -102,10 +105,11 @@ export default function LoginScreen() {
       <LinearGradient colors={currentTheme.background} className="flex-1">
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
 
-        <Animated.View
-          className="flex-1 justify-center items-center p-5"
-          style={{ opacity: fadeAnim }}
-        >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <Animated.View
+            className="flex-1 justify-center items-center p-5"
+            style={{ opacity: fadeAnim }}
+          >
           {/* Logo */}
           <View className="mb-10">
             <Image
@@ -137,8 +141,10 @@ export default function LoginScreen() {
                 }
                 onChangeText={setEmail}
                 value={email}
-                keyboardType="email-address"
+                keyboardType="default"
                 autoCapitalize="none"
+                returnKeyType="next"
+                blurOnSubmit={false}
               />
             </View>
             <View
@@ -158,7 +164,10 @@ export default function LoginScreen() {
                 }
                 onChangeText={setPassword}
                 value={password}
-                secureTextEntry={!showPassword}
+                secureTextEntry={showPassword}
+                keyboardType="default"
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
@@ -205,6 +214,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
         </Animated.View>
+        </TouchableWithoutFeedback>
 
         <ModalComponent
           visible={modalVisible}

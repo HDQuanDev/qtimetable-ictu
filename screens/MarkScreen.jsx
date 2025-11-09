@@ -25,11 +25,14 @@ const MarkScreen = () => {
   const [subjectSortOption, setSubjectSortOption] = useState("default");
   const { isDarkMode } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
-  const rotateAnim = new Animated.Value(0);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
 
   // Hàm tải dữ liệu điểm từ local storage
-  const fetchData = async () => {
-    setRefreshing(true);
+  const fetchData = async (showLoading = false) => {
+    if (showLoading) {
+      setRefreshing(true);
+    }
     try {
       const diemData = (await AsyncStorage.getItem("userData_Diem")) || "[]";
       const diemDetailData =
@@ -43,20 +46,25 @@ const MarkScreen = () => {
     } catch (error) {
       Alert.alert("Error", "Unable to load grade data from local storage...");
     } finally {
-      setRefreshing(false);
+      if (showLoading) {
+        setRefreshing(false);
+      }
+      setIsInitialized(true);
     }
   };
 
+  // Chỉ load dữ liệu lần đầu tiên khi mount component
   useFocusEffect(
     useCallback(() => {
-      fetchData();
-    }, [])
+      if (!isInitialized) {
+        fetchData(false);
+      }
+    }, [isInitialized])
   );
 
   // Hàm xử lý làm mới dữ liệu
   const handleRefresh = () => {
     if (!refreshing) {
-      setRefreshing(true);
       Animated.timing(rotateAnim, {
         toValue: 1,
         duration: 1000,
@@ -64,7 +72,7 @@ const MarkScreen = () => {
       }).start(() => {
         rotateAnim.setValue(0);
       });
-      fetchData();
+      fetchData(true);
     }
   };
 

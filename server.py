@@ -1,3 +1,4 @@
+import psutil
 from flask import Flask, request, jsonify
 from werkzeug.exceptions import BadRequest
 import os
@@ -194,6 +195,7 @@ def excel_to_structured_json(excel_file, data_extended = None):
             if index == 0:
                 continue
 
+            # Check for week information
             if pd.notna(row[1]) and isinstance(row[1], str) and 'Tuần' in row[1]:
                 week_number, start_date, end_date = extract_week_info(row[1].strip())
                 current_week = {
@@ -205,17 +207,39 @@ def excel_to_structured_json(excel_file, data_extended = None):
                 result["thoikhoabieu"].append(current_week)
                 continue
 
-            if pd.notna(row[1]) and isinstance(row[1], str) and 'Sinh viên :' in row[1]:
-                result["user_info"]["name"] = row[2].split(' - ')[1]
-                result["user_info"]["masinhvien"] = row[2].split(' - ')[0]
+            # Check for student info - format: "Sinh viên :" in column B, data in column C
+            if pd.notna(row[1]) and isinstance(row[1], str) and ('Sinh viên :' in row[1] or 'Sinh viên:' in row[1]):
+                try:
+                    if pd.notna(row[2]) and isinstance(row[2], str):
+                        student_info = row[2].strip()
+                        if ' - ' in student_info:
+                            parts = student_info.split(' - ', 1)  # Split only once
+                            if len(parts) >= 2:
+                                result["user_info"]["masinhvien"] = parts[0].strip()
+                                result["user_info"]["name"] = parts[1].strip()
+                        else:
+                            # If no dash, just store as name
+                            result["user_info"]["name"] = student_info
+                except Exception as e:
+                    print(f"Error parsing student info: {e}")
                 continue
 
-            if pd.notna(row[1]) and isinstance(row[1], str) and 'Ngành :' in row[1]:
-                result["user_info"]["nganh"] = row[2]
+            # Check for major info - format: "Ngành :" in column B, data in column C
+            if pd.notna(row[1]) and isinstance(row[1], str) and ('Ngành :' in row[1] or 'Ngành:' in row[1]):
+                try:
+                    if pd.notna(row[2]) and isinstance(row[2], str):
+                        result["user_info"]["nganh"] = row[2].strip()
+                except Exception as e:
+                    print(f"Error parsing major info: {e}")
                 continue
 
-            if pd.notna(row[1]) and isinstance(row[1], str) and 'Khóa :' in row[1]:
-                result["user_info"]["khoa"] = row[2]
+            # Check for course info - format: "Khóa :" in column B, data in column C
+            if pd.notna(row[1]) and isinstance(row[1], str) and ('Khóa :' in row[1] or 'Khóa:' in row[1]):
+                try:
+                    if pd.notna(row[2]) and isinstance(row[2], str):
+                        result["user_info"]["khoa"] = row[2].strip()
+                except Exception as e:
+                    print(f"Error parsing course info: {e}")
                 continue
 
             if pd.notna(row[0]) and pd.notna(row[1]) and current_week is not None:
@@ -281,6 +305,21 @@ def get_tkb_api():
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
-    
+@app.route('/health', methods=['GET'])
+def health_check():
+    system = os.name
+    uptime = time.time() - psutil.boot_time()
+    ramusage = psutil.virtual_memory().percent
+    ramfree = psutil.virtual_memory().available / (1024 * 1024)
+    cpuload = psutil.cpu_percent(interval=1)
+    return jsonify({
+        "status": "OK",
+        "system": system,
+        "uptime_seconds": uptime,
+        "ram_usage_percent": ramusage,
+        "ram_free_mb": ramfree,
+        "cpu_load_percent": cpuload
+    })
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=1410, debug=False)
